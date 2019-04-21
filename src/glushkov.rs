@@ -1,20 +1,16 @@
 /// Implementation of the Glushkov's construction algorithm to build a
 /// linearized language out of a regexp's HIR, and finaly convert this
 /// expression to a variable NFA.
-use regex_syntax::hir;
+use super::mapping;
 
-#[derive(Debug)]
+use regex_syntax::hir;
+use regex_syntax::hir::{GroupKind, HirKind, RepetitionKind};
+
+#[derive(Clone, Copy, Debug)]
 pub enum Atom<'a> {
     Literal(&'a hir::Literal),
     Class(&'a hir::Class),
-}
-
-impl<'a> Copy for Atom<'a> {}
-
-impl<'a> Clone for Atom<'a> {
-    fn clone(&self) -> Atom<'a> {
-        *self
-    }
+    Marker(mapping::Marker<'a>),
 }
 
 #[derive(Debug)]
@@ -30,26 +26,40 @@ impl<'a> LocalLang<'a> {
     /// Return a language representing the input Hir.
     pub fn from_hir(hir: &hir::Hir) -> LocalLang {
         match hir.kind() {
-            hir::HirKind::Empty => LocalLang::empty(),
-            hir::HirKind::Literal(lit) => LocalLang::atom(Atom::Literal(lit)),
-            hir::HirKind::Class(class) => LocalLang::atom(Atom::Class(class)),
-            hir::HirKind::Repetition(rep) => {
+            HirKind::Empty => LocalLang::empty(),
+            HirKind::Literal(lit) => LocalLang::atom(Atom::Literal(lit)),
+            HirKind::Class(class) => LocalLang::atom(Atom::Class(class)),
+            HirKind::Repetition(rep) => {
                 let lang = LocalLang::from_hir(&(*rep.hir));
                 match rep.kind {
-                    hir::RepetitionKind::ZeroOrOne => LocalLang::optional(&lang),
-                    hir::RepetitionKind::ZeroOrMore => {
-                        LocalLang::optional(&LocalLang::closure(&lang))
-                    }
-                    hir::RepetitionKind::OneOrMore => LocalLang::closure(&lang),
-                    hir::RepetitionKind::Range(ref range) => LocalLang::repetition(lang, &range),
+                    RepetitionKind::ZeroOrOne => LocalLang::optional(&lang),
+                    RepetitionKind::ZeroOrMore => LocalLang::optional(&LocalLang::closure(&lang)),
+                    RepetitionKind::OneOrMore => LocalLang::closure(&lang),
+                    RepetitionKind::Range(ref range) => LocalLang::repetition(lang, &range),
                 }
             }
-            hir::HirKind::Concat(sub) => {
+            HirKind::Group(group) => {
+                let lang = LocalLang::from_hir(&(*group.hir));
+                match group.kind {
+                    GroupKind::CaptureIndex(_) | GroupKind::NonCapturing => lang,
+                    GroupKind::CaptureName { ref name, index: _ } => {
+                        let var = mapping::Variable::new(name);
+                        LocalLang::concatenation(
+                            &LocalLang::atom(Atom::Marker(mapping::Marker::Open(var))),
+                            &LocalLang::concatenation(
+                                &lang,
+                                &LocalLang::atom(Atom::Marker(mapping::Marker::Close(var))),
+                            ),
+                        )
+                    }
+                }
+            }
+            HirKind::Concat(sub) => {
                 let closure = |acc, x| LocalLang::concatenation(&acc, &LocalLang::from_hir(x));
 
                 sub.iter().fold(LocalLang::epsilon(), closure)
             }
-            hir::HirKind::Alternation(sub) => {
+            HirKind::Alternation(sub) => {
                 let closure = |acc, x| LocalLang::alternation(&acc, &LocalLang::from_hir(x));
 
                 sub.iter().fold(LocalLang::empty(), closure)

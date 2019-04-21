@@ -5,4 +5,5 @@ authors = ["Rémi Dupré <remim.dupre@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-regex-syntax = "0.6.6"
+regex-syntax = "0.6"
+rand = "0.6"
