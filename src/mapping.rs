@@ -1,13 +1,13 @@
 use rand;
 
-#[derive(Copy, Clone, Debug)]
-pub struct Variable<'a> {
+#[derive(Clone, Debug)]
+pub struct Variable {
     id: u64,
-    name: &'a str,
+    name: String,
 }
 
-impl<'a> Variable<'a> {
-    pub fn new(name: &'a str) -> Variable<'a> {
+impl Variable {
+    pub fn new(name: String) -> Variable {
         Variable {
             id: rand::random(),
             name: name,
@@ -15,8 +15,8 @@ impl<'a> Variable<'a> {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum Marker<'a> {
-    Close(Variable<'a>),
-    Open(Variable<'a>),
+#[derive(Clone, Debug)]
+pub enum Marker {
+    Close(Variable),
+    Open(Variable),
 }
