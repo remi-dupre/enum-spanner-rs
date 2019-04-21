@@ -1,14 +1,11 @@
-use regex_syntax::Parser;
 mod automata;
 mod glushkov;
 mod mapping;
 
-fn main() {
-    let hir = Parser::new().parse("(?P<x>.)").unwrap();
-    let a = glushkov::LocalLang::from_hir(&hir);
-    println!("{:?}", a);
+use regex_syntax::Parser;
 
-    let v = mapping::Variable::new("x");
-    let m = mapping::Marker::Open(v);
-    println!("v: {:?}, m: {:?}", v, m);
+fn main() {
+    let regex = "(?P<x>a{0,10})b";
+    let hir = Parser::new().parse(regex).unwrap();
+    println!("{:?} -> {:?}", regex, automata::Automata::from_hir(&hir));
 }

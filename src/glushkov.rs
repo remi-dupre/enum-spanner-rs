@@ -1,25 +1,19 @@
 /// Implementation of the Glushkov's construction algorithm to build a
 /// linearized language out of a regexp's HIR, and finaly convert this
 /// expression to a variable NFA.
+use super::automata::Atom;
 use super::mapping;
 
 use regex_syntax::hir;
 use regex_syntax::hir::{GroupKind, HirKind, RepetitionKind};
 
-#[derive(Clone, Copy, Debug)]
-pub enum Atom<'a> {
-    Literal(&'a hir::Literal),
-    Class(&'a hir::Class),
-    Marker(mapping::Marker<'a>),
-}
-
 #[derive(Debug)]
 pub struct LocalLang<'a> {
-    atoms: Vec<Atom<'a>>,
-    p: Vec<usize>,
-    d: Vec<usize>,
-    f: Vec<(usize, usize)>,
-    g: bool,
+    pub atoms: Vec<Atom<'a>>,
+    pub p: Vec<usize>,
+    pub d: Vec<usize>,
+    pub f: Vec<(usize, usize)>,
+    pub g: bool,
 }
 
 impl<'a> LocalLang<'a> {
