@@ -1,9 +1,7 @@
 /// Implementation of the Glushkov's construction algorithm to build a
 /// linearized language out of a regexp's HIR, and finaly convert this
 /// expression to a variable NFA.
-
 use regex_syntax::hir;
-
 
 #[derive(Debug)]
 pub enum Atom<'a> {
@@ -11,14 +9,13 @@ pub enum Atom<'a> {
     Class(&'a hir::Class),
 }
 
-impl<'a> Copy for Atom<'a> { }
+impl<'a> Copy for Atom<'a> {}
 
 impl<'a> Clone for Atom<'a> {
     fn clone(&self) -> Atom<'a> {
         *self
     }
 }
-
 
 #[derive(Debug)]
 pub struct LocalLang<'a> {
@@ -40,27 +37,23 @@ impl<'a> LocalLang<'a> {
                 let lang = LocalLang::from_hir(&(*rep.hir));
                 match rep.kind {
                     hir::RepetitionKind::ZeroOrOne => LocalLang::optional(&lang),
-                    hir::RepetitionKind::ZeroOrMore =>
-                        LocalLang::optional(&LocalLang::closure(&lang)),
+                    hir::RepetitionKind::ZeroOrMore => {
+                        LocalLang::optional(&LocalLang::closure(&lang))
+                    }
                     hir::RepetitionKind::OneOrMore => LocalLang::closure(&lang),
-                    hir::RepetitionKind::Range(ref range) =>
-                        LocalLang::repetition(lang, &range)
+                    hir::RepetitionKind::Range(ref range) => LocalLang::repetition(lang, &range),
                 }
-            },
+            }
             hir::HirKind::Concat(sub) => {
-                let closure = |acc, x| LocalLang::concatenation(
-                    &acc, &LocalLang::from_hir(x)
-                );
+                let closure = |acc, x| LocalLang::concatenation(&acc, &LocalLang::from_hir(x));
 
                 sub.iter().fold(LocalLang::epsilon(), closure)
-            },
+            }
             hir::HirKind::Alternation(sub) => {
-                let closure = |acc, x| LocalLang::alternation(
-                    &acc, &LocalLang::from_hir(x)
-                );
+                let closure = |acc, x| LocalLang::alternation(&acc, &LocalLang::from_hir(x));
 
                 sub.iter().fold(LocalLang::empty(), closure)
-            },
+            }
             other => panic!("Not implemented: {:?}", other),
         }
     }
@@ -128,9 +121,12 @@ impl<'a> LocalLang<'a> {
         // Enumerate factors
         let mut f = Vec::new();
         f.extend(&lang1.f);
-        f.extend(lang2.f.iter().map(
-            |(x, y)| (x + lang2_offset, y + lang2_offset)
-        ));
+        f.extend(
+            lang2
+                .f
+                .iter()
+                .map(|(x, y)| (x + lang2_offset, y + lang2_offset)),
+        );
 
         for x in &lang1.d {
             for y in &lang2.p {
@@ -138,8 +134,13 @@ impl<'a> LocalLang<'a> {
             }
         }
 
-
-        LocalLang { p, d, f, g: lang1.g && lang2.g, atoms }
+        LocalLang {
+            atoms,
+            p,
+            d,
+            f,
+            g: lang1.g && lang2.g,
+        }
     }
 
     /// Return a local language containing words from the first or the second
@@ -165,11 +166,20 @@ impl<'a> LocalLang<'a> {
         // Enumerate factors
         let mut f = Vec::new();
         f.extend(&lang1.f);
-        f.extend(lang2.f.iter().map(
-            |(x, y)| (x + lang2_offset, y + lang2_offset)
-        ));
+        f.extend(
+            lang2
+                .f
+                .iter()
+                .map(|(x, y)| (x + lang2_offset, y + lang2_offset)),
+        );
 
-        LocalLang { atoms, p, d, f, g: lang1.g || lang2.g }
+        LocalLang {
+            atoms,
+            p,
+            d,
+            f,
+            g: lang1.g || lang2.g,
+        }
     }
 
     /// Return a local language containing the empty word and the input
@@ -213,14 +223,9 @@ impl<'a> LocalLang<'a> {
 
         for i in 0..min {
             if i == min - 1 && max == None {
-                result = LocalLang::concatenation(
-                    &result, &LocalLang::closure(&lang)
-                );
-            }
-            else {
-                result = LocalLang::concatenation(
-                    &result, &lang
-                );
+                result = LocalLang::concatenation(&result, &LocalLang::closure(&lang));
+            } else {
+                result = LocalLang::concatenation(&result, &lang);
             }
         }
 
@@ -228,9 +233,7 @@ impl<'a> LocalLang<'a> {
             let mut optionals = LocalLang::empty();
 
             for _ in min..max {
-                optionals = LocalLang::optional(
-                    &LocalLang::concatenation(&lang, &optionals)
-                );
+                optionals = LocalLang::optional(&LocalLang::concatenation(&lang, &optionals));
             }
 
             result = LocalLang::concatenation(&result, &optionals);
