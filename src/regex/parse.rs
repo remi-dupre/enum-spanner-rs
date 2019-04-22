@@ -6,14 +6,15 @@ use regex_syntax::hir::HirKind as LibHir;
 use regex_syntax::hir::RepetitionKind as LibRepKind;
 use regex_syntax::hir::RepetitionRange as LibRepRange;
 
-use super::automata::{Atom, Label};
-use super::mapping::{Marker, Variable};
+use super::super::automaton::atom::Atom;
+use super::super::automaton::Label;
+use super::super::mapping::{Marker, Variable};
 
 /// A simple Hir, with branchements of arity at most 2 and at least redondancy as possible.
 #[derive(Clone, Debug)]
 pub enum Hir {
     Empty,
-    Label(Rc<Label>), // embeded into an Rc to avoid heavy copies of complex literals
+    Label(Rc<Label>), // embeded into an Rc to avoid duplicating heavy complex literals
     Concat(Box<Hir>, Box<Hir>),
     Alternation(Box<Hir>, Box<Hir>),
     Option(Box<Hir>),

@@ -1,11 +1,11 @@
-mod automata;
-mod glushkov;
+mod automaton;
 mod mapping;
-mod parse;
+mod regex;
 
 fn main() {
-    let regex = "a{0,10000}";
-    let automaton = automata::Automata::from_regex(regex);
+    let regex = "a";
+    let automaton = regex::parse(regex);
+
     println!(
         "The automaton has {} states for {} transitions",
         automaton.nb_states(),

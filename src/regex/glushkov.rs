@@ -3,7 +3,8 @@
 use std::collections::LinkedList;
 use std::rc::Rc;
 
-use super::automata::Label;
+use super::super::automaton::Automaton;
+use super::super::automaton::Label;
 use super::parse::Hir;
 
 #[derive(Clone, Debug)]
@@ -29,6 +30,32 @@ pub struct LocalLang {
 /// A local language is a regular language that can be identified with only its factors of size 2,
 /// its prefixes and suffixes and wether it contains the empty word or not.
 impl LocalLang {
+    pub fn into_automaton(self) -> Automaton {
+        let iner_transitions = self
+            .factors
+            .f
+            .into_iter()
+            .map(|(source, target)| (source.id + 1, target.label, target.id + 1));
+        let pref_transitions = self
+            .factors
+            .p
+            .into_iter()
+            .map(|target| (0, target.label, target.id + 1));
+
+        let transitions = iner_transitions.chain(pref_transitions).collect();
+        let mut finals: Vec<usize> = self.factors.d.into_iter().map(|x| x.id + 1).collect();
+
+        if self.factors.g {
+            finals.push(0);
+        }
+
+        Automaton {
+            nb_states: self.nb_terms + 1,
+            transitions,
+            finals,
+        }
+    }
+
     /// Return a language representing the input Hir.
     pub fn from_hir(hir: Hir) -> LocalLang {
         match hir {
