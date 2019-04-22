@@ -1,10 +1,10 @@
 use std::rc::Rc;
 
 use regex_syntax::hir;
-use regex_syntax::Parser;
 
 use super::glushkov;
 use super::mapping;
+use super::parse::Hir;
 
 #[derive(Debug)]
 pub enum Label {
@@ -26,7 +26,7 @@ pub struct Automata {
 }
 
 impl Automata {
-    pub fn from_hir(hir: hir::Hir) -> Automata {
+    pub fn from_hir(hir: Hir) -> Automata {
         let locallang = glushkov::LocalLang::from_hir(hir);
 
         let iner_transitions = locallang
@@ -55,7 +55,7 @@ impl Automata {
     }
 
     pub fn from_regex(regex: &str) -> Automata {
-        let hir = Parser::new().parse(regex).unwrap();
+        let hir = Hir::from_regex(regex);
         Automata::from_hir(hir)
     }
 

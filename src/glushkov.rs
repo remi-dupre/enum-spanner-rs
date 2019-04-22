@@ -3,11 +3,8 @@
 use std::collections::LinkedList;
 use std::rc::Rc;
 
-use regex_syntax::hir;
-use regex_syntax::hir::{GroupKind, HirKind, RepetitionKind};
-
-use super::automata::{Atom, Label};
-use super::mapping;
+use super::automata::Label;
+use super::parse::Hir;
 
 #[derive(Clone, Debug)]
 pub struct GlushkovTerm {
@@ -33,48 +30,22 @@ pub struct LocalLang {
 /// its prefixes and suffixes and wether it contains the empty word or not.
 impl LocalLang {
     /// Return a language representing the input Hir.
-    pub fn from_hir(hir: hir::Hir) -> LocalLang {
-        match hir.into_kind() {
-            HirKind::Empty => LocalLang::empty(),
-            HirKind::Literal(lit) => LocalLang::label(Rc::new(Label::Atom(Atom::Literal(lit)))),
-            HirKind::Class(class) => LocalLang::label(Rc::new(Label::Atom(Atom::Class(class)))),
-            HirKind::Repetition(rep) => {
-                let lang = LocalLang::from_hir(*rep.hir);
-                match rep.kind {
-                    RepetitionKind::ZeroOrOne => LocalLang::optional(lang),
-                    RepetitionKind::ZeroOrMore => LocalLang::optional(LocalLang::closure(lang)),
-                    RepetitionKind::OneOrMore => LocalLang::closure(lang),
-                    RepetitionKind::Range(range) => LocalLang::repetition(lang, range),
-                }
+    pub fn from_hir(hir: Hir) -> LocalLang {
+        match hir {
+            Hir::Empty => LocalLang::empty(),
+            Hir::Label(label) => LocalLang::label(label),
+            Hir::Concat(hir1, hir2) => {
+                LocalLang::concatenation(LocalLang::from_hir(*hir1), LocalLang::from_hir(*hir2))
             }
-            HirKind::Group(group) => {
-                let lang = LocalLang::from_hir(*group.hir);
-                match group.kind {
-                    GroupKind::CaptureIndex(_) | GroupKind::NonCapturing => lang,
-                    GroupKind::CaptureName { name, index: _ } => {
-                        let var = mapping::Variable::new(name);
-                        let marker_open = Label::Assignation(mapping::Marker::Open(var.clone()));
-                        let marker_close = Label::Assignation(mapping::Marker::Close(var));
-                        LocalLang::concatenation(
-                            LocalLang::label(Rc::new(marker_open)),
-                            LocalLang::concatenation(lang, LocalLang::label(Rc::new(marker_close))),
-                        )
-                    }
-                }
+            Hir::Alternation(hir1, hir2) => {
+                LocalLang::alternation(LocalLang::from_hir(*hir1), LocalLang::from_hir(*hir2))
             }
-            HirKind::Concat(sub) => {
-                let closure = |acc, x| LocalLang::concatenation(acc, LocalLang::from_hir(x));
-                sub.into_iter().fold(LocalLang::epsilon(), closure)
-            }
-            HirKind::Alternation(sub) => {
-                let closure = |acc, x| LocalLang::alternation(acc, LocalLang::from_hir(x));
-                sub.into_iter().fold(LocalLang::empty(), closure)
-            }
-            other => panic!("Not implemented: {:?}", other),
+            Hir::Option(hir) => LocalLang::optional(LocalLang::from_hir(*hir)),
+            Hir::Closure(hir) => LocalLang::closure(LocalLang::from_hir(*hir)),
         }
     }
 
-    /// Register a new atom in the local language and return the associated state.
+    /// Register a new atom in the local language and return the associated term.
     fn register_label(&mut self, label: Rc<Label>) -> GlushkovTerm {
         self.nb_terms += 1;
         GlushkovTerm {
@@ -83,13 +54,13 @@ impl LocalLang {
         }
     }
 
-    /// Return a local language representing an expression containing a single state.
+    /// Return a local language representing an expression containing a single term.
     fn label(label: Rc<Label>) -> LocalLang {
         let mut lang = LocalLang::empty();
-        let state = lang.register_label(label);
+        let term = lang.register_label(label);
 
-        lang.factors.p.push_back(state.clone());
-        lang.factors.d.push_back(state);
+        lang.factors.p.push_back(term.clone());
+        lang.factors.d.push_back(term);
         lang
     }
 
@@ -106,22 +77,9 @@ impl LocalLang {
         }
     }
 
-    /// Return a local language containing only the empty word.
-    fn epsilon() -> LocalLang {
-        LocalLang {
-            nb_terms: 0,
-            factors: GlushkovFactors {
-                p: LinkedList::new(),
-                d: LinkedList::new(),
-                f: LinkedList::new(),
-                g: true,
-            },
-        }
-    }
-
     /// Return a local language containing the concatenation of words from the first and second
     /// input languages.
-    fn concatenation(mut lang1: LocalLang, mut lang2: LocalLang) -> LocalLang {
+    fn concatenation(lang1: LocalLang, lang2: LocalLang) -> LocalLang {
         let nb_terms = lang1.nb_terms + lang2.nb_terms;
         let mut factors = GlushkovFactors {
             p: lang1.factors.p,
@@ -130,21 +88,27 @@ impl LocalLang {
             g: lang1.factors.g && lang2.factors.g,
         };
 
-        for x in &factors.d {
+        {
+            let mut owned_lang2_factors = lang2.factors.f;
+            factors.f.append(&mut owned_lang2_factors);
+        }
+
+        for x in &lang1.factors.d {
             for y in &lang2.factors.p {
                 factors.f.push_back((x.clone(), y.clone()));
             }
         }
 
         if lang1.factors.g {
-            factors.p.append(&mut lang2.factors.p);
+            let mut owned_lang2_p = lang2.factors.p;
+            factors.p.append(&mut owned_lang2_p);
         }
 
         if lang2.factors.g {
-            factors.d.append(&mut lang1.factors.d);
+            let mut owned_lang1_d = lang1.factors.d;
+            factors.d.append(&mut owned_lang1_d);
         }
 
-        factors.f.append(&mut lang2.factors.f);
         LocalLang { nb_terms, factors }
     }
 
@@ -177,37 +141,5 @@ impl LocalLang {
         }
 
         lang
-    }
-
-    /// Return a local language containing words made of an interval-defined count of words from
-    /// the input language.
-    fn repetition(lang: LocalLang, range: hir::RepetitionRange) -> LocalLang {
-        let (min, max) = match range {
-            hir::RepetitionRange::Exactly(n) => (n, Some(n)),
-            hir::RepetitionRange::AtLeast(n) => (n, None),
-            hir::RepetitionRange::Bounded(m, n) => (m, Some(n)),
-        };
-
-        let mut result = LocalLang::epsilon();
-
-        for i in 0..min {
-            if i == min - 1 && max == None {
-                result = LocalLang::concatenation(result, LocalLang::closure(lang.clone()));
-            } else {
-                result = LocalLang::concatenation(result, lang.clone());
-            }
-        }
-
-        if let Some(max) = max {
-            let mut optionals = LocalLang::empty();
-
-            for _ in min..max {
-                optionals = LocalLang::optional(LocalLang::concatenation(lang.clone(), optionals));
-            }
-
-            result = LocalLang::concatenation(result, optionals);
-        }
-
-        result
     }
 }

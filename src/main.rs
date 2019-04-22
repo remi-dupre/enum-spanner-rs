@@ -1,9 +1,10 @@
 mod automata;
 mod glushkov;
 mod mapping;
+mod parse;
 
 fn main() {
-    let regex = ".*(?P<match>a{0,1000}).*";
+    let regex = "a{0,10000}";
     let automaton = automata::Automata::from_regex(regex);
     println!(
         "The automaton has {} states for {} transitions",
