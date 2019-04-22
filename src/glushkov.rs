@@ -6,22 +6,38 @@ use std::rc::Rc;
 use regex_syntax::hir;
 use regex_syntax::hir::{GroupKind, HirKind, RepetitionKind};
 
-use super::automata::{Atom, Label, LabelKind};
+use super::automata::{Atom, Label};
 use super::mapping;
 
 #[derive(Clone, Debug)]
+pub struct GlushkovTerm {
+    pub id: usize,
+    pub label: Rc<Label>,
+}
+
+#[derive(Clone, Debug)]
+pub struct GlushkovFactors {
+    pub p: LinkedList<GlushkovTerm>,
+    pub d: LinkedList<GlushkovTerm>,
+    pub f: LinkedList<(GlushkovTerm, GlushkovTerm)>,
+    pub g: bool,
+}
+
+#[derive(Clone, Debug)]
 pub struct LocalLang {
-    pub nb_labels: usize,
+    pub nb_terms: usize,
     pub factors: GlushkovFactors,
 }
 
+/// A local language is a regular language that can be identified with only its factors of size 2,
+/// its prefixes and suffixes and wether it contains the empty word or not.
 impl LocalLang {
     /// Return a language representing the input Hir.
     pub fn from_hir(hir: hir::Hir) -> LocalLang {
         match hir.into_kind() {
             HirKind::Empty => LocalLang::empty(),
-            HirKind::Literal(lit) => LocalLang::label(LabelKind::Atom(Atom::Literal(lit))),
-            HirKind::Class(class) => LocalLang::label(LabelKind::Atom(Atom::Class(class))),
+            HirKind::Literal(lit) => LocalLang::label(Rc::new(Label::Atom(Atom::Literal(lit)))),
+            HirKind::Class(class) => LocalLang::label(Rc::new(Label::Atom(Atom::Class(class)))),
             HirKind::Repetition(rep) => {
                 let lang = LocalLang::from_hir(*rep.hir);
                 match rep.kind {
@@ -37,14 +53,11 @@ impl LocalLang {
                     GroupKind::CaptureIndex(_) | GroupKind::NonCapturing => lang,
                     GroupKind::CaptureName { name, index: _ } => {
                         let var = mapping::Variable::new(name);
-                        let marker_open = mapping::Marker::Open(var.clone());
-                        let marker_close = mapping::Marker::Close(var);
+                        let marker_open = Label::Assignation(mapping::Marker::Open(var.clone()));
+                        let marker_close = Label::Assignation(mapping::Marker::Close(var));
                         LocalLang::concatenation(
-                            LocalLang::label(LabelKind::Assignation(marker_open)),
-                            LocalLang::concatenation(
-                                lang,
-                                LocalLang::label(LabelKind::Assignation(marker_close)),
-                            ),
+                            LocalLang::label(Rc::new(marker_open)),
+                            LocalLang::concatenation(lang, LocalLang::label(Rc::new(marker_close))),
                         )
                     }
                 }
@@ -61,69 +74,108 @@ impl LocalLang {
         }
     }
 
-    /// Register a new atom in the local language for later use
-
-    fn register_label(&mut self, kind: LabelKind) -> Label {
-        self.nb_labels += 1;
-        Label {
-            id: self.nb_labels - 1,
-            kind,
+    /// Register a new atom in the local language and return the associated state.
+    fn register_label(&mut self, label: Rc<Label>) -> GlushkovTerm {
+        self.nb_terms += 1;
+        GlushkovTerm {
+            id: self.nb_terms - 1,
+            label,
         }
     }
 
-    /// Return a local language representing an expression containing a single atom.
-    fn label(kind: LabelKind) -> LocalLang {
+    /// Return a local language representing an expression containing a single state.
+    fn label(label: Rc<Label>) -> LocalLang {
         let mut lang = LocalLang::empty();
-        let label = Rc::new(lang.register_label(kind));
+        let state = lang.register_label(label);
 
-        lang.factors.p.push_back(label.clone());
-        lang.factors.d.push_back(label);
+        lang.factors.p.push_back(state.clone());
+        lang.factors.d.push_back(state);
         lang
     }
 
     /// Return an empty local language.
     fn empty() -> LocalLang {
         LocalLang {
-            nb_labels: 0,
-            factors: GlushkovFactors::empty(),
+            nb_terms: 0,
+            factors: GlushkovFactors {
+                p: LinkedList::new(),
+                d: LinkedList::new(),
+                f: LinkedList::new(),
+                g: false,
+            },
         }
     }
 
     /// Return a local language containing only the empty word.
     fn epsilon() -> LocalLang {
         LocalLang {
-            nb_labels: 0,
-            factors: GlushkovFactors::epsilon(),
+            nb_terms: 0,
+            factors: GlushkovFactors {
+                p: LinkedList::new(),
+                d: LinkedList::new(),
+                f: LinkedList::new(),
+                g: true,
+            },
         }
     }
 
     /// Return a local language containing the concatenation of words from the first and second
     /// input languages.
-    fn concatenation(lang1: LocalLang, lang2: LocalLang) -> LocalLang {
-        LocalLang {
-            nb_labels: lang1.nb_labels + lang2.nb_labels,
-            factors: GlushkovFactors::concatenation(lang1.factors, lang2.factors),
+    fn concatenation(mut lang1: LocalLang, mut lang2: LocalLang) -> LocalLang {
+        let nb_terms = lang1.nb_terms + lang2.nb_terms;
+        let mut factors = GlushkovFactors {
+            p: lang1.factors.p,
+            d: lang2.factors.d,
+            f: lang1.factors.f,
+            g: lang1.factors.g && lang2.factors.g,
+        };
+
+        for x in &factors.d {
+            for y in &lang2.factors.p {
+                factors.f.push_back((x.clone(), y.clone()));
+            }
         }
+
+        if lang1.factors.g {
+            factors.p.append(&mut lang2.factors.p);
+        }
+
+        if lang2.factors.g {
+            factors.d.append(&mut lang1.factors.d);
+        }
+
+        factors.f.append(&mut lang2.factors.f);
+        LocalLang { nb_terms, factors }
     }
 
     /// Return a local language containing words from the first or the second input languages.
-    fn alternation(lang1: LocalLang, lang2: LocalLang) -> LocalLang {
-        LocalLang {
-            nb_labels: lang1.nb_labels + lang2.nb_labels,
-            factors: GlushkovFactors::alternation(lang1.factors, lang2.factors),
-        }
+    fn alternation(lang1: LocalLang, mut lang2: LocalLang) -> LocalLang {
+        let nb_terms = lang1.nb_terms + lang2.nb_terms;
+        let mut factors = lang1.factors;
+
+        factors.p.append(&mut lang2.factors.p);
+        factors.d.append(&mut lang2.factors.d);
+        factors.f.append(&mut lang2.factors.f);
+        factors.g = factors.g || lang2.factors.g;
+
+        LocalLang { nb_terms, factors }
     }
 
     /// Return a local language containing the empty word and the input language.
     fn optional(mut lang: LocalLang) -> LocalLang {
-        lang.factors = GlushkovFactors::optional(lang.factors);
+        lang.factors.g = true;
         lang
     }
 
     /// Return a local language containing words made of one or more repetitions of words of the
     /// input language.
     fn closure(mut lang: LocalLang) -> LocalLang {
-        lang.factors = GlushkovFactors::closure(lang.factors);
+        for x in &lang.factors.d {
+            for y in &lang.factors.p {
+                lang.factors.f.push_back((x.clone(), y.clone()));
+            }
+        }
+
         lang
     }
 
@@ -157,99 +209,5 @@ impl LocalLang {
         }
 
         result
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct GlushkovFactors {
-    pub p: LinkedList<Rc<Label>>,
-    pub d: LinkedList<Rc<Label>>,
-    pub f: LinkedList<(Rc<Label>, Rc<Label>)>,
-    pub g: bool,
-}
-
-/// Please refer to the documentation of LocalLang for the aim of methods in this struct.
-impl GlushkovFactors {
-    fn atom(atom: &Rc<Label>) -> GlushkovFactors {
-        let mut list = LinkedList::new();
-        list.push_back(atom.clone());
-
-        GlushkovFactors {
-            p: list.clone(),
-            d: list,
-            f: LinkedList::new(),
-            g: false,
-        }
-    }
-
-    fn empty() -> GlushkovFactors {
-        GlushkovFactors {
-            p: LinkedList::new(),
-            d: LinkedList::new(),
-            f: LinkedList::new(),
-            g: false,
-        }
-    }
-
-    fn epsilon() -> GlushkovFactors {
-        GlushkovFactors {
-            p: LinkedList::new(),
-            d: LinkedList::new(),
-            f: LinkedList::new(),
-            g: true,
-        }
-    }
-
-    fn concatenation(
-        mut factors1: GlushkovFactors,
-        mut factors2: GlushkovFactors,
-    ) -> GlushkovFactors {
-        let mut factors = GlushkovFactors {
-            p: factors1.p,
-            d: factors2.d,
-            f: factors1.f,
-            g: factors1.g && factors2.g,
-        };
-
-        for x in &factors.d {
-            for y in &factors2.p {
-                factors.f.push_back((x.clone(), y.clone()));
-            }
-        }
-
-        if factors1.g {
-            factors.p.append(&mut factors2.p);
-        }
-
-        if factors2.g {
-            factors.d.append(&mut factors1.d);
-        }
-
-        factors.f.append(&mut factors2.f);
-        factors
-    }
-
-    fn alternation(factors1: GlushkovFactors, mut factors2: GlushkovFactors) -> GlushkovFactors {
-        let mut factors = factors1;
-        factors.p.append(&mut factors2.p);
-        factors.d.append(&mut factors2.d);
-        factors.f.append(&mut factors2.f);
-        factors.g = factors.g || factors2.g;
-        factors
-    }
-
-    fn optional(mut factors: GlushkovFactors) -> GlushkovFactors {
-        factors.g = true;
-        factors
-    }
-
-    fn closure(mut factors: GlushkovFactors) -> GlushkovFactors {
-        for x in &factors.d {
-            for y in &factors.p {
-                factors.f.push_back((x.clone(), y.clone()));
-            }
-        }
-
-        factors
     }
 }

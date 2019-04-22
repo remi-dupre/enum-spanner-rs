@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use regex_syntax::hir;
@@ -8,13 +7,7 @@ use super::glushkov;
 use super::mapping;
 
 #[derive(Debug)]
-pub struct Label {
-    pub id: usize,
-    pub kind: LabelKind,
-}
-
-#[derive(Debug)]
-pub enum LabelKind {
+pub enum Label {
     Atom(Atom),
     Assignation(mapping::Marker),
 }
@@ -36,15 +29,16 @@ impl Automata {
     pub fn from_hir(hir: hir::Hir) -> Automata {
         let locallang = glushkov::LocalLang::from_hir(hir);
 
-        let iner_transitions = locallang.factors.f.into_iter().map(|(source, target)| {
-            let src_id = source.id;
-            let tgt_id = target.id;
-            (src_id + 1, target, tgt_id + 1)
-        });
-        let pref_transitions = locallang.factors.p.into_iter().map(|target| {
-            let tgt_id = target.id;
-            (0, target, tgt_id + 1)
-        });
+        let iner_transitions = locallang
+            .factors
+            .f
+            .into_iter()
+            .map(|(source, target)| (source.id + 1, target.label, target.id + 1));
+        let pref_transitions = locallang
+            .factors
+            .p
+            .into_iter()
+            .map(|target| (0, target.label, target.id + 1));
 
         let transitions = iner_transitions.chain(pref_transitions).collect();
         let mut finals: Vec<usize> = locallang.factors.d.into_iter().map(|x| x.id + 1).collect();
@@ -54,7 +48,7 @@ impl Automata {
         }
 
         Automata {
-            nb_states: locallang.nb_labels + 1,
+            nb_states: locallang.nb_terms + 1,
             transitions,
             finals,
         }
@@ -63,5 +57,13 @@ impl Automata {
     pub fn from_regex(regex: &str) -> Automata {
         let hir = Parser::new().parse(regex).unwrap();
         Automata::from_hir(hir)
+    }
+
+    pub fn nb_states(&self) -> usize {
+        self.nb_states
+    }
+
+    pub fn nb_transitions(&self) -> usize {
+        self.transitions.len()
     }
 }
