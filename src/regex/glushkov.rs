@@ -52,40 +52,43 @@ impl LocalLang {
         Automaton {
             nb_states: self.nb_terms + 1,
             transitions,
-            finals,
+            finals: finals.into_iter().collect(),
         }
     }
 
     /// Return a language representing the input Hir.
-    pub fn from_hir(hir: Hir) -> LocalLang {
+    pub fn from_hir(hir: Hir, id_offset: usize) -> LocalLang {
         match hir {
             Hir::Empty => LocalLang::empty(),
-            Hir::Label(label) => LocalLang::label(label),
+            Hir::Label(label) => LocalLang::label(label, id_offset),
             Hir::Concat(hir1, hir2) => {
-                LocalLang::concatenation(LocalLang::from_hir(*hir1), LocalLang::from_hir(*hir2))
+                let lang1 = LocalLang::from_hir(*hir1, id_offset);
+                let lang2 = LocalLang::from_hir(*hir2, id_offset + lang1.nb_terms);
+                LocalLang::concatenation(lang1, lang2)
             }
             Hir::Alternation(hir1, hir2) => {
-                LocalLang::alternation(LocalLang::from_hir(*hir1), LocalLang::from_hir(*hir2))
+                let lang1 = LocalLang::from_hir(*hir1, id_offset);
+                let lang2 = LocalLang::from_hir(*hir2, id_offset + lang1.nb_terms);
+                LocalLang::alternation(lang1, lang2)
             }
-            Hir::Option(hir) => LocalLang::optional(LocalLang::from_hir(*hir)),
-            Hir::Closure(hir) => LocalLang::closure(LocalLang::from_hir(*hir)),
+            Hir::Option(hir) => LocalLang::optional(LocalLang::from_hir(*hir, id_offset)),
+            Hir::Closure(hir) => LocalLang::closure(LocalLang::from_hir(*hir, id_offset)),
         }
     }
 
     /// Register a new atom in the local language and return the associated term.
-    fn register_label(&mut self, label: Rc<Label>) -> GlushkovTerm {
+    fn register_label(&mut self, label: Rc<Label>, id_offset: usize) -> GlushkovTerm {
         self.nb_terms += 1;
         GlushkovTerm {
-            id: self.nb_terms - 1,
+            id: self.nb_terms + id_offset - 1,
             label,
         }
     }
 
     /// Return a local language representing an expression containing a single term.
-    fn label(label: Rc<Label>) -> LocalLang {
+    fn label(label: Rc<Label>, id_offset: usize) -> LocalLang {
         let mut lang = LocalLang::empty();
-        let term = lang.register_label(label);
-
+        let term = lang.register_label(label, id_offset);
         lang.factors.p.push_back(term.clone());
         lang.factors.d.push_back(term);
         lang

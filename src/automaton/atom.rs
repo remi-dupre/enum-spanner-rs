@@ -12,9 +12,9 @@ impl Atom {
     pub fn is_match(&self, a: &char) -> bool {
         match self {
             Atom::Literal(hir::Literal::Unicode(x)) => a == x,
-            Atom::Class(hir::Class::Unicode(class)) => class.iter().fold(false, |acc, range| {
-                acc || (range.start() <= *a && *a <= range.end())
-            }),
+            Atom::Class(hir::Class::Unicode(class)) => class
+                .iter()
+                .any(|range| range.start() <= *a && *a <= range.end()),
             _ => panic!("This regex was compiled for unicode datas"),
         }
     }
