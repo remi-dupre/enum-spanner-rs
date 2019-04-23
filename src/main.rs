@@ -3,10 +3,8 @@ mod mapping;
 mod regex;
 
 fn main() {
-    let regex = r"(.*\s)?(?P<x>[^\s]+)(\s.*)?";
-    let automaton = regex::parse(regex);
-
-    println!("{:?}", automaton);
+    let regex = r"(.*\s)?(?P<x>[^\s]+)(\s.*)?\s(?P<y>[^\s]+)(\s.*)?";
+    let automaton = regex::compile(regex);
 
     let text = "salut, ça va !?";
 
@@ -17,7 +15,7 @@ fn main() {
     );
 
     for x in mapping::naive::NaiveEnum::new(&automaton, &text).iter() {
-        println!("{:?}", x);
+        println!("{}", x);
     }
 
     // println!("{:?} -> {:?}", regex, automaton);

@@ -20,6 +20,16 @@ pub struct Mapping<'a> {
     maps: HashMap<Variable, (usize, usize)>,
 }
 
+impl<'a> fmt::Display for Mapping<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for (var, (start, end)) in self.maps.iter() {
+            write!(f, "{}: {} ", var, &self.text[*start..*end]).unwrap();
+        }
+
+        Ok(())
+    }
+}
+
 impl<'a> Mapping<'a> {
     pub fn from_markers<T>(text: &'a str, marker_assigns: T) -> Mapping
     where

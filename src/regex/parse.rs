@@ -58,10 +58,10 @@ impl Hir {
                 }
             }
             LibHir::Concat(sub) => sub.into_iter().fold(Hir::epsilon(), |acc, branch| {
-                Hir::concat(Hir::from_lib_hir(branch), acc)
+                Hir::concat(acc, Hir::from_lib_hir(branch))
             }),
             LibHir::Alternation(sub) => sub.into_iter().fold(Hir::Empty, |acc, branch| {
-                Hir::alternation(Hir::from_lib_hir(branch), acc)
+                Hir::alternation(acc, Hir::from_lib_hir(branch))
             }),
             other => panic!("Not implemented for: {:?}", other),
         }
