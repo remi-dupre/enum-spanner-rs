@@ -9,21 +9,6 @@ use super::{Mapping, Marker};
 pub struct NaiveEnum<'a> {
     automaton: &'a Automaton,
     text: &'a str,
-}
-
-impl<'a> NaiveEnum<'a> {
-    pub fn new(automaton: &'a Automaton, text: &'a str) -> NaiveEnum<'a> {
-        NaiveEnum { automaton, text }
-    }
-
-    pub fn iter(&self) -> NaiveEnumIter<'a> {
-        NaiveEnumIter::new(self.automaton, self.text)
-    }
-}
-
-pub struct NaiveEnumIter<'a> {
-    automaton: &'a Automaton,
-    text: &'a str,
 
     /// Holds current positions of the runs as a stack of:
     ///  - current state on the automata
@@ -32,19 +17,17 @@ pub struct NaiveEnumIter<'a> {
     curr_state: Vec<(usize, CharIndices<'a>, Vec<(&'a Marker, usize)>)>,
 }
 
-impl<'a> NaiveEnumIter<'a> {
-    fn new(automaton: &'a Automaton, text: &'a str) -> NaiveEnumIter<'a> {
-        let curr_state = vec![(0, text.char_indices(), Vec::new())];
-
-        NaiveEnumIter {
+impl<'a> NaiveEnum<'a> {
+    pub fn new(automaton: &'a Automaton, text: &'a str) -> NaiveEnum<'a> {
+        NaiveEnum {
             automaton,
             text,
-            curr_state,
+            curr_state: vec![(0, text.char_indices(), Vec::new())],
         }
     }
 }
 
-impl<'a> Iterator for NaiveEnumIter<'a> {
+impl<'a> Iterator for NaiveEnum<'a> {
     type Item = Mapping<'a>;
 
     fn next(&mut self) -> Option<Mapping<'a>> {

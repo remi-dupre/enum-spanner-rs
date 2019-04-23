@@ -2,24 +2,90 @@ mod automaton;
 mod mapping;
 mod regex;
 
+use std::fs::File;
+use std::io::prelude::*;
+use std::io::stdin;
+
+use clap::{App, Arg};
+
 fn main() {
-    let regex = r"(.*\s)?(?P<x>[^\s]+)(\s.*)?\s(?P<y>[^\s]+)(\s.*)?";
-    let automaton = regex::compile(regex);
+    //  ____
+    // |  _ \ __ _ _ __ ___  ___ _ __
+    // | |_) / _` | '__/ __|/ _ \ '__|
+    // |  __/ (_| | |  \__ \  __/ |
+    // |_|   \__,_|_|  |___/\___|_|
+    //
+    let matches = App::new("Enumerate matchings")
+        .version("0.1")
+        .author("Rémi Dupré <remi.dupre@ens-paris-saclay.fr>")
+        .about("Enumerate all matches of a regular expression on a text.")
+        .arg(
+            Arg::with_name("regex")
+                .help("The pattern to look for.")
+                .required(true),
+        )
+        .arg(
+            Arg::with_name("file")
+                .help("The file to be read, if none is specified, STDIN is used."),
+        )
+        .arg(
+            Arg::with_name("bytes_offset")
+                .short("b")
+                .long("bytes-offset")
+                .help("Print the 0-based offset of each matching part and groups."),
+        )
+        .arg(
+            Arg::with_name("count")
+                .short("c")
+                .long("count")
+                .help("Display the number of matches instead."),
+        )
+        .get_matches();
 
-    let text = "salut, ça va !?";
+    // Extract parameters
+    let show_offset = matches.is_present("bytes_offset");
+    let count = matches.is_present("count");
+    let regex = matches.value_of("regex").unwrap(); // Safe unwrap
 
-    println!(
-        "The automaton has {} states for {} transitions",
-        automaton.nb_states(),
-        automaton.nb_transitions()
-    );
+    // Read the text
+    let mut text = String::new();
+    match matches.value_of("file") {
+        Some(filename) => {
+            let mut file = File::open(filename).unwrap();
+            file.read_to_string(&mut text).unwrap()
+        }
+        None => stdin().read_to_string(&mut text).unwrap(),
+    };
 
-    for x in mapping::naive::NaiveEnum::new(&automaton, &text).iter() {
-        println!("{}", x);
+    // Remove trailing newlines
+    while text.as_bytes().last() == Some(&b'\n') {
+        text.pop();
     }
 
-    let a = "^saut$";
-    println!("{:?}", a.as_bytes().first());
+    //  __  __       _       _
+    // |  \/  | __ _| |_ ___| |__
+    // | |\/| |/ _` | __/ __| '_ \
+    // | |  | | (_| | || (__| | | |
+    // |_|  |_|\__,_|\__\___|_| |_|
+    //
+    let regex = regex::compile(regex);
 
-    // println!("{:?} -> {:?}", regex, automaton);
+    if count {
+        let count: u64 = regex::iter_matches(&regex, &text).map(|_| 1).sum();
+        println!("{}", count)
+    } else {
+        for (count, mapping) in regex::iter_matches(&regex, &text).enumerate() {
+            print!("{} -", count);
+
+            for (name, (start, end)) in mapping.iter_groups() {
+                if show_offset {
+                    print!(" {}:{},{}", name, start, end);
+                } else {
+                    print!(" {}:\"{}\"", name, &text[start..end]);
+                }
+            }
+
+            println!();
+        }
+    }
 }

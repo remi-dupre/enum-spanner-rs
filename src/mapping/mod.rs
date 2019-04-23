@@ -23,7 +23,8 @@ pub struct Mapping<'a> {
 impl<'a> fmt::Display for Mapping<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (var, (start, end)) in self.maps.iter() {
-            write!(f, "{}: {} ", var, &self.text[*start..*end]).unwrap();
+            // write!(f, "{}: {} ", var, &self.text[*start..*end]).unwrap();
+            write!(f, "{}: ({}, {}) ", var, start, end)?;
         }
 
         Ok(())
@@ -31,6 +32,12 @@ impl<'a> fmt::Display for Mapping<'a> {
 }
 
 impl<'a> Mapping<'a> {
+    pub fn iter_groups(&self) -> impl Iterator<Item = (&str, (usize, usize))> {
+        self.maps
+            .iter()
+            .map(|(key, value)| (key.get_name(), *value))
+    }
+
     pub fn from_markers<T>(text: &'a str, marker_assigns: T) -> Mapping<'a>
     where
         T: Iterator<Item = (&'a Marker, usize)>,
@@ -113,6 +120,10 @@ impl Variable {
             id: rand::random(),
             name: name,
         }
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.name
     }
 }
 
