@@ -87,9 +87,9 @@ fn test_repetition() {
     assert!(is_match(r"^(ab){5,}$", &"ab".repeat(6)[..]));
     assert!(!is_match(r"^(ab){5,}$", &"ab".repeat(4)[..]));
 
-    assert!(is_match(r"^(ab){,5}$", &"ab".repeat(5)[..]));
-    assert!(is_match(r"^(ab){,5}$", &"ab".repeat(4)[..]));
-    assert!(!is_match(r"^(ab){,5}$", &"ab".repeat(6)[..]));
+    assert!(is_match(r"^(ab){0,5}$", &"ab".repeat(5)[..]));
+    assert!(is_match(r"^(ab){0,5}$", &"ab".repeat(4)[..]));
+    assert!(!is_match(r"^(ab){0,5}$", &"ab".repeat(6)[..]));
 
     assert!(is_match(r"^(ab){4,5}$", &"ab".repeat(4)[..]));
     assert!(is_match(r"^(ab){4,5}$", &"ab".repeat(5)[..]));

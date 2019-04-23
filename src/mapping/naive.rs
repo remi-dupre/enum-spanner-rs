@@ -29,7 +29,7 @@ pub struct NaiveEnumIter<'a> {
     ///  - current state on the automata
     ///  - current index on the word
     ///  - assignations that have been done so far
-    curr_state: Vec<(usize, CharIndices<'a>, Vec<(Marker, usize)>)>,
+    curr_state: Vec<(usize, CharIndices<'a>, Vec<(&'a Marker, usize)>)>,
 }
 
 impl<'a> NaiveEnumIter<'a> {
@@ -51,7 +51,7 @@ impl<'a> Iterator for NaiveEnumIter<'a> {
         while let Some((state, index, assigns)) = self.curr_state.pop() {
             let curr_char = index.clone().next();
 
-            for (label, target) in &self.automaton.adj()[state] {
+            for (label, target) in &self.automaton.get_adj()[state] {
                 match **label {
                     Label::Atom(ref atom) if curr_char != None => {
                         if let Some((_, curr_char)) = curr_char {
@@ -70,7 +70,7 @@ impl<'a> Iterator for NaiveEnumIter<'a> {
                             None => self.text.len(),
                             Some((pos, _)) => pos,
                         };
-                        new_assigns.push((marker.clone(), pos));
+                        new_assigns.push((marker, pos));
                         self.curr_state.push((*target, index.clone(), new_assigns));
                     }
                     _ => (),

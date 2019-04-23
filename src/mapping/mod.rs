@@ -17,7 +17,7 @@ use rand;
 #[derive(Debug)]
 pub struct Mapping<'a> {
     text: &'a str,
-    maps: HashMap<Variable, (usize, usize)>,
+    maps: HashMap<&'a Variable, (usize, usize)>,
 }
 
 impl<'a> fmt::Display for Mapping<'a> {
@@ -31,11 +31,11 @@ impl<'a> fmt::Display for Mapping<'a> {
 }
 
 impl<'a> Mapping<'a> {
-    pub fn from_markers<T>(text: &'a str, marker_assigns: T) -> Mapping
+    pub fn from_markers<T>(text: &'a str, marker_assigns: T) -> Mapping<'a>
     where
-        T: Iterator<Item = (Marker, usize)>,
+        T: Iterator<Item = (&'a Marker, usize)>,
     {
-        let mut dict: HashMap<Variable, (Option<usize>, Option<usize>)> = HashMap::new();
+        let mut dict: HashMap<&'a Variable, (Option<usize>, Option<usize>)> = HashMap::new();
 
         for (marker, pos) in marker_assigns {
             let span = match dict.get(marker.variable()) {
@@ -60,7 +60,7 @@ impl<'a> Mapping<'a> {
                 },
             };
 
-            dict.insert(marker.into_variable(), span);
+            dict.insert(marker.variable(), span);
         }
 
         let maps = dict

@@ -9,16 +9,16 @@ use super::parse::Hir;
 
 #[derive(Clone, Debug)]
 pub struct GlushkovTerm {
-    pub id: usize,
-    pub label: Rc<Label>,
+    id: usize,
+    label: Rc<Label>,
 }
 
 #[derive(Clone, Debug)]
 pub struct GlushkovFactors {
-    pub p: LinkedList<GlushkovTerm>,
-    pub d: LinkedList<GlushkovTerm>,
-    pub f: LinkedList<(GlushkovTerm, GlushkovTerm)>,
-    pub g: bool,
+    p: LinkedList<GlushkovTerm>,
+    d: LinkedList<GlushkovTerm>,
+    f: LinkedList<(GlushkovTerm, GlushkovTerm)>,
+    g: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -42,18 +42,14 @@ impl LocalLang {
             .into_iter()
             .map(|target| (0, target.label, target.id + 1));
 
-        let transitions = iner_transitions.chain(pref_transitions).collect();
+        let transitions = iner_transitions.chain(pref_transitions);
         let mut finals: Vec<usize> = self.factors.d.into_iter().map(|x| x.id + 1).collect();
 
         if self.factors.g {
             finals.push(0);
         }
 
-        Automaton {
-            nb_states: self.nb_terms + 1,
-            transitions,
-            finals: finals.into_iter().collect(),
-        }
+        Automaton::new(self.nb_terms + 1, transitions, finals.into_iter())
     }
 
     /// Return a language representing the input Hir.

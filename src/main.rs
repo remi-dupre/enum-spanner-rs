@@ -18,5 +18,8 @@ fn main() {
         println!("{}", x);
     }
 
+    let a = "^saut$";
+    println!("{:?}", a.as_bytes().first());
+
     // println!("{:?} -> {:?}", regex, automaton);
 }
