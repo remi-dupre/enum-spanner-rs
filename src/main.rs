@@ -77,11 +77,11 @@ fn main() {
         for (count, mapping) in regex::iter_matches(&regex, &text).enumerate() {
             print!("{} -", count);
 
-            for (name, (start, end)) in mapping.iter_groups() {
+            for (name, range) in mapping.iter_groups() {
                 if show_offset {
-                    print!(" {}:{},{}", name, start, end);
+                    print!(" {}:{},{}", name, range.start, range.end);
                 } else {
-                    print!(" {}:\"{}\"", name, &text[start..end]);
+                    print!(" {}:\"{}\"", name, &text[range]);
                 }
             }
 

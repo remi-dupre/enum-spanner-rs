@@ -63,7 +63,7 @@ impl Hir {
             LibHir::Alternation(sub) => sub.into_iter().fold(Hir::Empty, |acc, branch| {
                 Hir::alternation(acc, Hir::from_lib_hir(branch))
             }),
-            other => panic!("Not implemented for: {:?}", other),
+            other => panic!("Not implemented: {:?}", other),
         }
     }
 

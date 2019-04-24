@@ -3,6 +3,7 @@ pub mod naive;
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::ops::Range;
 
 use rand;
 
@@ -17,14 +18,14 @@ use rand;
 #[derive(Debug)]
 pub struct Mapping<'a> {
     text: &'a str,
-    maps: HashMap<&'a Variable, (usize, usize)>,
+    maps: HashMap<&'a Variable, Range<usize>>,
 }
 
 impl<'a> fmt::Display for Mapping<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (var, (start, end)) in self.maps.iter() {
+        for (var, range) in self.maps.iter() {
             // write!(f, "{}: {} ", var, &self.text[*start..*end]).unwrap();
-            write!(f, "{}: ({}, {}) ", var, start, end)?;
+            write!(f, "{}: ({}, {}) ", var, range.start, range.end)?;
         }
 
         Ok(())
@@ -32,10 +33,10 @@ impl<'a> fmt::Display for Mapping<'a> {
 }
 
 impl<'a> Mapping<'a> {
-    pub fn iter_groups(&self) -> impl Iterator<Item = (&str, (usize, usize))> {
+    pub fn iter_groups(&self) -> impl Iterator<Item = (&str, Range<usize>)> {
         self.maps
             .iter()
-            .map(|(key, value)| (key.get_name(), *value))
+            .map(|(key, value)| (key.get_name(), value.clone()))
     }
 
     pub fn from_markers<T>(text: &'a str, marker_assigns: T) -> Mapping<'a>
@@ -73,7 +74,7 @@ impl<'a> Mapping<'a> {
         let maps = dict
             .into_iter()
             .map(|(key, span)| match span {
-                (Some(i), Some(j)) if i <= j => (key, (i, j)),
+                (Some(i), Some(j)) if i <= j => (key, i..j),
                 _ => panic!("Invalid mapping ordering"),
             })
             .collect();

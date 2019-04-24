@@ -37,6 +37,7 @@ impl Automaton {
         automaton.adj = automaton.init_adj();
         automaton
     }
+
     pub fn nb_states(&self) -> usize {
         self.nb_states
     }

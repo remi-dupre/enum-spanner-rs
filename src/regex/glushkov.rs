@@ -8,17 +8,24 @@ use super::super::automaton::Label;
 use super::parse::Hir;
 
 #[derive(Clone, Debug)]
+pub struct GlushkovFactors {
+    /// The list of terms that are a prefix of a word of language.
+    p: LinkedList<GlushkovTerm>,
+    /// The list of terms that are a suffix of a word of language.
+    d: LinkedList<GlushkovTerm>,
+    /// The list of factors of size two that appear in a word of the language.
+    f: LinkedList<(GlushkovTerm, GlushkovTerm)>, //
+    /// Wether the empty word belongs two the language or not.
+    g: bool,
+}
+
+/// A linearized (distinguishable from others in the input regex) label, the language of words over
+/// this alphabet is local, however if it is unlinearized it is possible to get back to the
+/// original regular language.
+#[derive(Clone, Debug)]
 pub struct GlushkovTerm {
     id: usize,
     label: Rc<Label>,
-}
-
-#[derive(Clone, Debug)]
-pub struct GlushkovFactors {
-    p: LinkedList<GlushkovTerm>,
-    d: LinkedList<GlushkovTerm>,
-    f: LinkedList<(GlushkovTerm, GlushkovTerm)>,
-    g: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -30,6 +37,7 @@ pub struct LocalLang {
 /// A local language is a regular language that can be identified with only its factors of size 2,
 /// its prefixes and suffixes and wether it contains the empty word or not.
 impl LocalLang {
+    /// Create an automaton that recognise the same langage.
     pub fn into_automaton(self) -> Automaton {
         let iner_transitions = self
             .factors
