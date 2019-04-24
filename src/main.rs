@@ -2,6 +2,10 @@ mod automaton;
 mod mapping;
 mod regex;
 
+extern crate clap;
+extern crate rand;
+extern crate regex_syntax;
+
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::stdin;

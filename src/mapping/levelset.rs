@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 /// A same vertex can be store in several levels, and this level hierarchy can be accessed rather
 /// efficiently.
 #[derive(Debug)]
-struct LevelSet {
+pub struct LevelSet {
     /// Index level contents: `level id` -> `vertex id's list`.
     levels: HashMap<usize, Vec<usize>>,
     /// Index the id of a vertex iner to a level: `(level id, vertex id)` -> `vertex position`.
@@ -66,7 +66,7 @@ impl LevelSet {
                 }
             }
 
-            if (!new_level.is_empty()) {
+            if !new_level.is_empty() {
                 self.levels.insert(level, new_level);
             } else {
                 self.levels.remove(&level);

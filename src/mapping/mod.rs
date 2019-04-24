@@ -1,3 +1,4 @@
+mod jump;
 mod levelset;
 pub mod naive;
 
@@ -14,7 +15,6 @@ use rand;
 // | |  | | (_| | |_) | |_) | | | | | (_| |
 // |_|  |_|\__,_| .__/| .__/|_|_| |_|\__, |
 //              |_|   |_|            |___/
-
 /// Map a set of variables to spans [i, i'> over a text.
 #[derive(Debug)]
 pub struct Mapping<'a> {
@@ -90,7 +90,6 @@ impl<'a> Mapping<'a> {
 //   \ V / (_| | |  | | (_| | |_) | |  __/
 //    \_/ \__,_|_|  |_|\__,_|_.__/|_|\___|
 //
-
 #[derive(Clone, Debug)]
 pub struct Variable {
     id: u64,
@@ -135,7 +134,6 @@ impl Variable {
 // | |  | | (_| | |  |   <  __/ |
 // |_|  |_|\__,_|_|  |_|\_\___|_|
 //
-
 #[derive(Clone, Debug)]
 pub enum Marker {
     Close(Variable),
