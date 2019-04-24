@@ -17,7 +17,7 @@ pub struct Jump {
     last_level: usize,
 
     /// Set of vertices that can't be jumped since it has an ingoing non-jumpable edge.
-    /// TODO: it may only be required to store it for the last level.
+    /// NOTE: it may only be required to store it for the last level.
     nonjump_vertices: HashSet<(usize, usize)>,
 
     /// Closest level where an assignation is done accessible from any node.
@@ -67,7 +67,7 @@ impl Jump {
         let last_level = self.last_level;
         let next_level = self.last_level + 1;
 
-        // NOTE: this clone is only necessary for the borrow checker
+        // NOTE: this clone is only necessary for the borrow checker.
         let last_level_vertices = levelset.get_level(last_level).unwrap().clone();
 
         // Register jumpable transitions from this level to the next one

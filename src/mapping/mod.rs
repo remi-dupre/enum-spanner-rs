@@ -1,13 +1,15 @@
+pub mod indexed_dag;
+pub mod naive;
+
 mod jump;
 mod levelset;
-pub mod naive;
 
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Range;
 
-use rand;
+extern crate rand;
 
 //  __  __                   _
 // |  \/  | __ _ _ __  _ __ (_)_ __   __ _

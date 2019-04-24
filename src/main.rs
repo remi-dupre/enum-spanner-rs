@@ -91,5 +91,7 @@ fn main() {
 
             println!();
         }
+
+        let wip = mapping::indexed_dag::IndexedDag::compile(regex, text);
     }
 }

@@ -1,6 +1,7 @@
 pub mod atom;
 
 use std::collections::{HashMap, HashSet};
+use std::iter;
 use std::rc::Rc;
 
 use super::mapping::Marker;
@@ -48,12 +49,12 @@ impl Automaton {
         automaton
     }
 
-    pub fn nb_states(&self) -> usize {
-        self.nb_states
+    pub fn get_initials(&self) -> impl Iterator<Item = usize> {
+        iter::once(0)
     }
 
-    pub fn nb_transitions(&self) -> usize {
-        self.transitions.len()
+    pub fn nb_states(&self) -> usize {
+        self.nb_states
     }
 
     pub fn get_adj(&self) -> &Vec<Vec<(Rc<Label>, usize)>> {
