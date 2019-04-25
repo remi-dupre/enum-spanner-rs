@@ -2,6 +2,8 @@ pub mod atom;
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::fs::File;
+use std::io::prelude::*;
 use std::rc::Rc;
 
 use super::mapping::Marker;
@@ -96,6 +98,42 @@ impl Automaton {
     /// Get the closure as adjacency lists for transitions labeled with an assignation.
     pub fn get_closure_for_assignations(&self) -> &Vec<Vec<usize>> {
         &self.closure_for_assignations
+    }
+
+    /// Render the automaton as a dotfile for later rendering with graphviz.
+    pub fn render(&self, filename: &str) -> std::io::Result<()> {
+        let mut buf = File::create(filename)?;
+        buf.write(b"digraph automaton {\n")?;
+
+        // Use doublecircles for final states
+        buf.write(b"\tnode [shape=doublecircle]\n")?;
+
+        for state in &self.finals {
+            let node = format!("\tq{}\n", state);
+            buf.write(node.as_bytes())?;
+        }
+
+        // Draw edges
+        buf.write(b"\n\tnode [shape=circle]\n")?;
+
+        for (source, label, target) in &self.transitions {
+            let mut label_str = format!("{}", label).escape_debug().to_string();
+
+            if label_str.chars().count() > 10 {
+                label_str = String::from("[...]");
+            }
+
+            let edge = format!("\tq{} -> q{} [label=\" {} \"]\n", source, target, label_str);
+            buf.write(edge.as_bytes())?;
+        }
+
+        // Add an arrow towards initial state
+        buf.write(b"\n\tnode [shape=point]\n")?;
+        buf.write(b"\tbefore_q0\n")?;
+        buf.write(b"\tbefore_q0 -> q0\n")?;
+
+        buf.write(b"}\n")?;
+        Ok(())
     }
 
     fn init_adj(&self) -> Vec<Vec<(Rc<Label>, usize)>> {

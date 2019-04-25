@@ -74,6 +74,9 @@ fn main() {
     // |_|  |_|\__,_|\__\___|_| |_|
     //
     let regex = regex::compile(regex);
+    regex
+        .render("automaton.dot")
+        .expect("Could not create the dotfile.");
 
     if count {
         let count: u64 = regex::iter_matches(&regex, &text).map(|_| 1).sum();
