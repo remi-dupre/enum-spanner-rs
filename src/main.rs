@@ -93,6 +93,7 @@ fn main() {
             println!();
         }
 
-        let _wip = mapping::indexed_dag::IndexedDag::compile(regex, text);
+        let wip = mapping::indexed_dag::IndexedDag::compile(regex, text);
+        wip.enumerate();
     }
 }

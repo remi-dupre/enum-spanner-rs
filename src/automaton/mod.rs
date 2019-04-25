@@ -1,7 +1,7 @@
 pub mod atom;
 
 use std::collections::{HashMap, HashSet};
-use std::iter;
+use std::fmt;
 use std::rc::Rc;
 
 use super::mapping::Marker;
@@ -52,8 +52,8 @@ impl Automaton {
         automaton
     }
 
-    pub fn get_initials(&self) -> impl Iterator<Item = usize> {
-        iter::once(0)
+    pub fn get_initial(&self) -> usize {
+        0
     }
 
     pub fn nb_states(&self) -> usize {
@@ -182,6 +182,15 @@ impl Label {
         match self {
             Label::Assignation(marker) => Ok(marker),
             Label::Atom(_) => Err("Can't get a marker out of an atom label."),
+        }
+    }
+}
+
+impl fmt::Display for Label {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Label::Assignation(marker) => write!(f, "{}", marker),
+            Label::Atom(atom) => write!(f, "{}", atom),
         }
     }
 }

@@ -136,7 +136,7 @@ impl Variable {
 // | |  | | (_| | |  |   <  __/ |
 // |_|  |_|\__,_|_|  |_|\_\___|_|
 //
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Marker {
     Open(Variable),
     Close(Variable),
@@ -148,11 +148,11 @@ impl Marker {
             Marker::Open(var) | Marker::Close(var) => var,
         }
     }
+}
 
-    pub fn into_variable(self) -> Variable {
-        match self {
-            Marker::Open(var) | Marker::Close(var) => var,
-        }
+impl fmt::Debug for Marker {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
     }
 }
 

@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::hash::Hash;
-use std::rc::Rc;
+use std::iter;
 
 use super::super::automaton::Automaton;
 
@@ -20,7 +19,7 @@ pub struct IndexedDag {
 impl IndexedDag {
     pub fn compile(mut automaton: Automaton, text: String) -> IndexedDag {
         let mut jump = Jump::new(
-            automaton.get_initials(),
+            iter::once(automaton.get_initial()),
             automaton.get_closure_for_assignations(),
         );
 
@@ -32,7 +31,6 @@ impl IndexedDag {
             jump.init_next_level(adj_for_char, &closure_for_assignations);
         }
 
-        println!("{:?}", jump);
         IndexedDag {
             automaton,
             text,
@@ -40,7 +38,12 @@ impl IndexedDag {
         }
     }
 
-    fn follow_SpSm(&self, gamma: &Vec<usize>, s_p: &HashSet<&Marker>, s_m: &HashSet<&Marker>) {
+    fn follow_SpSm(
+        &self,
+        gamma: &Vec<usize>,
+        s_p: &HashSet<&Marker>,
+        s_m: &HashSet<&Marker>,
+    ) -> Vec<usize> {
         let adj = self.automaton.get_rev_assignations();
 
         // NOTE: Consider using a Vec instead?
@@ -88,6 +91,114 @@ impl IndexedDag {
                         }
                     })
                     .or_insert(Some(new_ps));
+            }
+        }
+
+        path_set
+            .iter()
+            .filter_map(|(vertex, vertex_ps)| match vertex_ps {
+                Some(vertex_ps) if vertex_ps.len() == s_p.len() => Some(*vertex),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// TODO: implement this as an iterable.
+    fn next_level(&self, gamma: &Vec<usize>) -> Vec<(HashSet<&Marker>, Vec<usize>)> {
+        let mut res = Vec::new();
+        let adj = self.automaton.get_rev_assignations();
+
+        // Get list of variables that are part of the level
+        // TODO: It might still be slower to just using the list of all variables in the automaton?
+        let mut k = HashSet::new();
+        let mut stack = gamma.clone();
+        let mut marks = HashSet::new();
+
+        for x in gamma {
+            marks.insert(x);
+        }
+
+        while let Some(source) = stack.pop() {
+            for (label, target) in &adj[source] {
+                k.insert(label.get_marker().unwrap());
+
+                if !marks.contains(target) {
+                    marks.insert(target);
+                    stack.push(*target);
+                }
+            }
+        }
+
+        // Run over the decision tree of variables to select
+        let k: Vec<_> = k.iter().collect();
+        let mut stack = vec![(HashSet::new(), HashSet::new())];
+
+        while let Some((mut s_p, mut s_m)) = stack.pop() {
+            let mut gamma2 = Some(self.follow_SpSm(gamma, &s_p, &s_m));
+
+            if gamma2.as_ref().unwrap().is_empty() {
+                continue;
+            }
+
+            while s_p.len() + s_m.len() < k.len() {
+                let depth = s_p.len() + s_m.len();
+                s_p.insert(*k[depth]);
+                gamma2 = Some(self.follow_SpSm(gamma, &s_p, &s_m));
+
+                if !gamma2.as_ref().unwrap().is_empty() {
+                    let mut new_s_p = s_p.clone();
+                    let mut new_s_m = s_m.clone();
+                    new_s_m.insert(*k[depth]);
+                    new_s_p.remove(*k[depth]);
+                    stack.push((new_s_p, new_s_m));
+                } else {
+                    s_p.remove(*k[depth]);
+                    s_m.insert(*k[depth]);
+                    gamma2 = None;
+                }
+            }
+
+            let gamma2 = match gamma2 {
+                None => self.follow_SpSm(gamma, &s_p, &s_m),
+                Some(val) => val,
+            };
+
+            res.push((s_p, gamma2));
+        }
+
+        res
+    }
+
+    /// TODO: implement this as an iterable.
+    pub fn enumerate(&self) {
+        let mut stack = vec![(
+            self.text.chars().count(),
+            self.automaton.finals.iter().map(|x| *x).collect(),
+            HashSet::new(),
+        )];
+
+        while let Some((level, gamma, mapping)) = stack.pop() {
+            println!("{:?},{} => {:?}", gamma, level, self.next_level(&gamma));
+
+            for (s_p, new_gamma) in self.next_level(&gamma).into_iter() {
+                if new_gamma.is_empty() {
+                    continue;
+                }
+
+                let mut new_mapping = mapping.clone();
+                for marker in s_p {
+                    new_mapping.insert((level, marker));
+                }
+
+                if level == 0 && new_gamma.contains(&self.automaton.get_initial()) {
+                    println!("--> {:?}", new_mapping);
+                } else if let Some((new_level, new_gamma)) =
+                    self.jump.jump(level, new_gamma.into_iter())
+                {
+                    if !new_gamma.is_empty() {
+                        stack.push((new_level, new_gamma, new_mapping));
+                    }
+                }
             }
         }
     }
