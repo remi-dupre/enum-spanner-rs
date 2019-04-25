@@ -1,5 +1,7 @@
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
+use std::fmt;
+use std::iter;
 
 use super::super::matrix::Matrix;
 use super::levelset::LevelSet;
@@ -175,5 +177,47 @@ impl Jump {
 
         // Update Jump counters
         // TODO
+    }
+
+    /// Jump to the next relevant level from vertices in gamma at a given level. A relevent level
+    /// has a node from which there is a path to gamma and that has an ingoing assignation.
+    ///
+    /// NOTE: It may be possible to return an iterator to refs of usize, but the autoref seems to
+    /// not do the work.
+    fn jump<T, U>(&self, level: usize, mut gamma: T) -> Option<(usize, Vec<usize>)>
+    where
+        T: Clone + Iterator<Item = usize>,
+    {
+        let &jump_level = gamma
+            .clone()
+            .filter_map(|vertex| self.jl.get(&(level, vertex)))
+            .max()?;
+
+        // NOTE: could convince Rust that the lifetime of this iterator is ok
+        let jump_level_vertices = self.levelset.get_level(jump_level).unwrap().iter();
+
+        let gamma2 = jump_level_vertices
+            .enumerate()
+            .filter(|(l, _)| {
+                // NOTE: Maybe it could be more efficient to compute indices `k` before the filter.
+                gamma.any(|source| {
+                    let k = self.levelset.get_vertex_index(level, source).unwrap();
+                    self.reach[&(jump_level, level)][(*l, *k)]
+                })
+            })
+            .map(|(_, target)| *target)
+            .collect();
+
+        Some((jump_level, gamma2))
+    }
+}
+
+impl fmt::Debug for Jump {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for ((sublevel, level), adj) in &self.reach {
+            write!(f, "-----\n{} <- {}:\n{:?}", sublevel, level, adj)?;
+        }
+
+        Ok(())
     }
 }

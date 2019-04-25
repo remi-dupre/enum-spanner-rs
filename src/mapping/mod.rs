@@ -136,10 +136,10 @@ impl Variable {
 // | |  | | (_| | |  |   <  __/ |
 // |_|  |_|\__,_|_|  |_|\_\___|_|
 //
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Marker {
-    Close(Variable),
     Open(Variable),
+    Close(Variable),
 }
 
 impl Marker {

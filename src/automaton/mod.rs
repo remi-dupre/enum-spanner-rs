@@ -6,12 +6,12 @@ use std::rc::Rc;
 
 use super::mapping::Marker;
 
-#[derive(Debug)]
-pub enum Label {
-    Atom(atom::Atom),
-    Assignation(Marker),
-}
-
+//     _         _                        _
+//    / \  _   _| |_ ___  _ __ ___   __ _| |_ ___  _ __
+//   / _ \| | | | __/ _ \| '_ ` _ \ / _` | __/ _ \| '_ \
+//  / ___ \ |_| | || (_) | | | | | | (_| | || (_) | | | |
+// /_/   \_\__,_|\__\___/|_| |_| |_|\__,_|\__\___/|_| |_|
+//
 #[derive(Debug)]
 pub struct Automaton {
     pub nb_states: usize,
@@ -22,6 +22,7 @@ pub struct Automaton {
     adj: Vec<Vec<(Rc<Label>, usize)>>,
     adj_for_char: HashMap<char, Vec<Vec<usize>>>,
     assignations: Vec<Vec<(Rc<Label>, usize)>>,
+    rev_assignations: Vec<Vec<(Rc<Label>, usize)>>,
     closure_for_assignations: Vec<Vec<usize>>,
 }
 
@@ -39,10 +40,12 @@ impl Automaton {
             adj: Vec::new(),
             adj_for_char: HashMap::new(),
             assignations: Vec::new(),
+            rev_assignations: Vec::new(),
             closure_for_assignations: Vec::new(),
         };
 
         automaton.adj = automaton.init_adj();
+        automaton.rev_assignations = automaton.init_rev_assignations();
         automaton.assignations = automaton.init_assignations();
         automaton.closure_for_assignations = automaton.init_closure_for_assignations();
 
@@ -85,6 +88,11 @@ impl Automaton {
         &self.assignations
     }
 
+    /// Get the reverse of assignations as defined in `Automata::get_assignations`.
+    pub fn get_rev_assignations(&self) -> &Vec<Vec<(Rc<Label>, usize)>> {
+        &self.assignations
+    }
+
     /// Get the closure as adjacency lists for transitions labeled with an assignation.
     pub fn get_closure_for_assignations(&self) -> &Vec<Vec<usize>> {
         &self.closure_for_assignations
@@ -107,6 +115,19 @@ impl Automaton {
         for (source, label, target) in &self.transitions {
             if let Label::Assignation(_) = **label {
                 adj[*source].push((label.clone(), *target))
+            }
+        }
+
+        adj
+    }
+
+    fn init_rev_assignations(&self) -> Vec<Vec<(Rc<Label>, usize)>> {
+        // Compute adjacency list
+        let mut adj = vec![Vec::new(); self.nb_states()];
+
+        for (source, label, target) in &self.transitions {
+            if let Label::Assignation(_) = **label {
+                adj[*target].push((label.clone(), *source))
             }
         }
 
@@ -141,5 +162,26 @@ impl Automaton {
         }
 
         closure
+    }
+}
+
+//  _          _          _
+// | |    __ _| |__   ___| |
+// | |   / _` | '_ \ / _ \ |
+// | |__| (_| | |_) |  __/ |
+// |_____\__,_|_.__/ \___|_|
+//
+#[derive(Debug)]
+pub enum Label {
+    Atom(atom::Atom),
+    Assignation(Marker),
+}
+
+impl Label {
+    pub fn get_marker(&self) -> Result<&Marker, &str> {
+        match self {
+            Label::Assignation(marker) => Ok(marker),
+            Label::Atom(_) => Err("Can't get a marker out of an atom label."),
+        }
     }
 }
