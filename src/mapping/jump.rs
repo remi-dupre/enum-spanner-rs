@@ -1,6 +1,7 @@
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
 
+use super::super::matrix::Matrix;
 use super::levelset::LevelSet;
 
 /// Generic Jump function inside a product DAG.
@@ -28,7 +29,7 @@ pub struct Jump {
     rev_rlevel: HashMap<usize, HashSet<usize>>,
     /// For any pair of level `(i, j)` such that i is in the level `rlevel[j]`, `reach[i, j]` is
     /// the accessibility matrix of vertices from level i to level j
-    reach: HashMap<(usize, usize), ()>,
+    reach: HashMap<(usize, usize), Matrix<bool>>,
 }
 
 impl Jump {
@@ -93,6 +94,7 @@ impl Jump {
 
         // NOTE: isn't there a better way of organizing this?
         self.extend_level(next_level, nonjump_adj);
+        self.init_reach(next_level, jump_adj);
         self.last_level = next_level;
     }
 
@@ -108,5 +110,70 @@ impl Jump {
                 nonjump_vertices.insert((level, *target));
             }
         }
+    }
+
+    // Compute reach and rlevel, that is the effective jump points to all levels reachable from the
+    // current level.
+    fn init_reach(&mut self, level: usize, jump_adj: &Vec<Vec<usize>>) {
+        let reach = &mut self.reach;
+        let rlevel = &mut self.rlevel;
+        let rev_rlevel = &mut self.rev_rlevel;
+        let jl = &self.jl;
+
+        let curr_level = self.levelset.get_level(level).unwrap();
+
+        // Build rlevel as the image of current level by jl
+        rlevel.insert(
+            level,
+            curr_level
+                .iter()
+                .filter_map(|source| jl.get(&(level, *source)).map(|target| *target))
+                .collect(),
+        );
+
+        // Update rev_rlevel for sublevels
+        rev_rlevel.insert(level, HashSet::new());
+
+        for sublevel in &rlevel[&level] {
+            rev_rlevel.get_mut(sublevel).unwrap().insert(level);
+        }
+
+        // Update reach
+        let prev_level = self.levelset.get_level(level - 1).unwrap();
+        reach.insert(
+            (level - 1, level),
+            Matrix::new(prev_level.len(), curr_level.len(), false),
+        );
+
+        for &source in prev_level {
+            for &target in &jump_adj[source] {
+                let id_source = *self.levelset.get_vertex_index(level - 1, source).unwrap();
+                let id_target = *self.levelset.get_vertex_index(level, target).unwrap();
+                *reach
+                    .get_mut(&(level - 1, level))
+                    .unwrap()
+                    .at(id_source, id_target) = true;
+            }
+        }
+
+        for &sublevel in &rlevel[&level] {
+            // This eliminates the stupid cast of level 0.
+            // TODO: fix this hardcoded behaviour.
+            if sublevel >= level - 1 {
+                continue;
+            }
+
+            reach.insert(
+                (sublevel, level),
+                &reach[&(sublevel, level - 1)] * &reach[&(level - 1, level)],
+            );
+        }
+
+        if !rlevel[&level].contains(&(level - 1)) {
+            reach.remove(&(level - 1, level));
+        }
+
+        // Update Jump counters
+        // TODO
     }
 }

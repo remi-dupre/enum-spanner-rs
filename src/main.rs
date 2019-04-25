@@ -1,5 +1,6 @@
 mod automaton;
 mod mapping;
+mod matrix;
 mod regex;
 
 extern crate clap;
@@ -92,6 +93,6 @@ fn main() {
             println!();
         }
 
-        let wip = mapping::indexed_dag::IndexedDag::compile(regex, text);
+        let _wip = mapping::indexed_dag::IndexedDag::compile(regex, text);
     }
 }
