@@ -45,8 +45,6 @@ impl IndexedDag {
         s_m: &HashSet<&Marker>,
     ) -> Vec<usize> {
         let adj = self.automaton.get_rev_assignations();
-
-        // NOTE: Consider using a Vec instead?
         let mut path_set: HashMap<usize, Option<HashSet<_>>> = HashMap::new();
 
         for &state in gamma {
@@ -59,11 +57,7 @@ impl IndexedDag {
         };
 
         // NOTE: Consider writing this as a recursive function?
-        let mut queue = VecDeque::new();
-
-        for x in gamma {
-            queue.push_back(*x);
-        }
+        let mut queue: VecDeque<_> = gamma.iter().map(|x| *x).collect();
 
         while let Some(source) = queue.pop_front() {
             for (label, target) in &adj[source] {
@@ -71,6 +65,10 @@ impl IndexedDag {
 
                 if s_m.contains(label) {
                     continue;
+                }
+
+                if !path_set.contains_key(target) {
+                    queue.push_back(*target);
                 }
 
                 let mut new_ps = path_set[&source].clone().unwrap();
@@ -171,15 +169,17 @@ impl IndexedDag {
 
     /// TODO: implement this as an iterable.
     pub fn enumerate(&self) {
-        let mut stack = vec![(
-            self.text.chars().count(),
-            self.automaton.finals.iter().map(|x| *x).collect(),
-            HashSet::new(),
-        )];
+        // Only start with accessible final states
+        let start = self
+            .jump
+            .finals()
+            .intersection(&self.automaton.finals.iter().map(|x| *x).collect())
+            .map(|x| *x)
+            .collect();
+
+        let mut stack = vec![(self.text.chars().count(), start, HashSet::new())];
 
         while let Some((level, gamma, mapping)) = stack.pop() {
-            println!("{:?},{} => {:?}", gamma, level, self.next_level(&gamma));
-
             for (s_p, new_gamma) in self.next_level(&gamma).into_iter() {
                 if new_gamma.is_empty() {
                     continue;
@@ -192,11 +192,11 @@ impl IndexedDag {
 
                 if level == 0 && new_gamma.contains(&self.automaton.get_initial()) {
                     println!("--> {:?}", new_mapping);
-                } else if let Some((new_level, new_gamma)) =
+                } else if let Some((jump_level, jump_gamma)) =
                     self.jump.jump(level, new_gamma.into_iter())
                 {
-                    if !new_gamma.is_empty() {
-                        stack.push((new_level, new_gamma, new_mapping));
+                    if !jump_gamma.is_empty() {
+                        stack.push((jump_level, jump_gamma, new_mapping));
                     }
                 }
             }

@@ -120,7 +120,8 @@ impl Jump {
             Some(&lvl) => lvl,
         };
 
-        // NOTE: could convince Rust that the lifetime of this iterator is ok
+        // NOTE: could convince Rust that the lifetime of this iterator is ok to return a map
+        // iterator.
         let jump_level_vertices = self.levelset.get_level(jump_level).unwrap();
 
         let gamma2 = jump_level_vertices
@@ -128,15 +129,27 @@ impl Jump {
             .enumerate()
             .filter(|(l, _)| {
                 // NOTE: Maybe it could be more efficient to compute indices `k` before the filter.
-                gamma.clone().any(|source| {
-                    let k = self.levelset.get_vertex_index(level, source).unwrap();
-                    self.reach[&(jump_level, level)][(*l, *k)]
-                })
+                gamma.clone().any(
+                    |source| match self.levelset.get_vertex_index(level, source) {
+                        Some(k) => self.reach[&(jump_level, level)][(*l, *k)],
+                        None => false,
+                    },
+                )
             })
             .map(|(_, target)| *target)
             .collect();
 
         Some((jump_level, gamma2))
+    }
+
+    /// Get the vertices that are in the final layer
+    pub fn finals(&self) -> HashSet<usize> {
+        self.levelset
+            .get_level(self.last_level)
+            .unwrap()
+            .iter()
+            .map(|x| *x)
+            .collect()
     }
 
     /// Extend current level by reading non-jumpable edges inside the given level.
@@ -221,11 +234,21 @@ impl Jump {
 
 impl fmt::Debug for Jump {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // for ((sublevel, level), adj) in &self.reach {
-        //     write!(f, "-----\n{} <- {}:\n{:?}", sublevel, level, adj)?;
-        // }
-        //
-        // Ok(())
-        write!(f, "{:?}", self.jl)
+        for ((sublevel, level), adj) in &self.reach {
+            write!(
+                f,
+                "-----\n{} <- {}:\n{}: {:?}\n{}: {:?}\n{:?}",
+                sublevel,
+                level,
+                sublevel,
+                self.levelset.get_level(*sublevel),
+                level,
+                self.levelset.get_level(*level),
+                adj
+            )?;
+        }
+
+        Ok(())
+        // write!(f, "{:?}", self.jl)
     }
 }

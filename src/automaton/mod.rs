@@ -76,8 +76,12 @@ impl Automaton {
         adj_for_char.entry(x).or_insert_with(|| {
             let mut res = vec![Vec::new(); nb_states];
 
-            for (source, _, target) in transitions {
-                res[*source].push(*target);
+            for (source, label, target) in transitions {
+                if let Label::Atom(atom) = &**label {
+                    if atom.is_match(&x) {
+                        res[*source].push(*target);
+                    }
+                }
             }
 
             res
@@ -92,7 +96,7 @@ impl Automaton {
 
     /// Get the reverse of assignations as defined in `Automata::get_assignations`.
     pub fn get_rev_assignations(&self) -> &Vec<Vec<(Rc<Label>, usize)>> {
-        &self.assignations
+        &self.rev_assignations
     }
 
     /// Get the closure as adjacency lists for transitions labeled with an assignation.
@@ -129,7 +133,6 @@ impl Automaton {
 
         // Add an arrow towards initial state
         buf.write(b"\n\tnode [shape=point]\n")?;
-        buf.write(b"\tbefore_q0\n")?;
         buf.write(b"\tbefore_q0 -> q0\n")?;
 
         buf.write(b"}\n")?;
