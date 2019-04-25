@@ -2,8 +2,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter;
 
 use super::super::automaton::Automaton;
-
-use super::super::mapping::Marker;
+use super::super::mapping::{Mapping, Marker};
 use super::jump::Jump;
 
 /// DAG built from the product automaton of a variable automaton and a text.
@@ -16,7 +15,7 @@ pub struct IndexedDag {
     jump: Jump,
 }
 
-impl IndexedDag {
+impl<'a> IndexedDag {
     pub fn compile(mut automaton: Automaton, text: String) -> IndexedDag {
         let mut jump = Jump::new(
             iter::once(automaton.get_initial()),
@@ -168,7 +167,7 @@ impl IndexedDag {
     }
 
     /// TODO: implement this as an iterable.
-    pub fn enumerate(&self) {
+    pub fn iter(&'a self) -> impl Iterator<Item = Mapping<'a>> {
         // Only start with accessible final states
         let start = self
             .jump
@@ -176,8 +175,8 @@ impl IndexedDag {
             .intersection(&self.automaton.finals.iter().map(|x| *x).collect())
             .map(|x| *x)
             .collect();
-
         let mut stack = vec![(self.text.chars().count(), start, HashSet::new())];
+        let mut ret = Vec::new();
 
         while let Some((level, gamma, mapping)) = stack.pop() {
             for (s_p, new_gamma) in self.next_level(&gamma).into_iter() {
@@ -187,11 +186,11 @@ impl IndexedDag {
 
                 let mut new_mapping = mapping.clone();
                 for marker in s_p {
-                    new_mapping.insert((level, marker));
+                    new_mapping.insert((marker, level));
                 }
 
                 if level == 0 && new_gamma.contains(&self.automaton.get_initial()) {
-                    println!("--> {:?}", new_mapping);
+                    ret.push(new_mapping);
                 } else if let Some((jump_level, jump_gamma)) =
                     self.jump.jump(level, new_gamma.into_iter())
                 {
@@ -201,5 +200,9 @@ impl IndexedDag {
                 }
             }
         }
+
+        ret.into_iter().map(move |marker_assigns| {
+            Mapping::from_markers(&self.text, marker_assigns.into_iter())
+        })
     }
 }

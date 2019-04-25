@@ -78,11 +78,13 @@ fn main() {
         .render("automaton.dot")
         .expect("Could not create the dotfile.");
 
+    let compiled_matches = mapping::IndexedDag::compile(regex, text.clone());
+
     if count {
-        let count: u64 = regex::iter_matches(&regex, &text).map(|_| 1).sum();
+        let count: u64 = compiled_matches.iter().map(|_| 1).sum();
         println!("{}", count)
     } else {
-        for (count, mapping) in regex::iter_matches(&regex, &text).enumerate() {
+        for (count, mapping) in compiled_matches.iter().enumerate() {
             print!("{} -", count);
 
             for (name, range) in mapping.iter_groups() {
@@ -95,8 +97,5 @@ fn main() {
 
             println!();
         }
-
-        let wip = mapping::indexed_dag::IndexedDag::compile(regex, text);
-        wip.enumerate();
     }
 }

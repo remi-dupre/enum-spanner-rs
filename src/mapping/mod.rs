@@ -9,6 +9,8 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Range;
 
+pub use indexed_dag::IndexedDag;
+
 extern crate rand;
 
 //  __  __                   _
