@@ -1,5 +1,8 @@
+use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::convert::TryInto;
 use std::iter;
+use std::time::{Duration, Instant};
 
 use super::super::automaton::Automaton;
 use super::super::mapping::{Mapping, Marker};
@@ -23,12 +26,44 @@ impl<'a> IndexedDag {
         );
 
         // NOTE: this copy could be avoided by changing the cached getter's behaviour
+        let text_length = text.chars().count();
         let closure_for_assignations = automaton.get_closure_for_assignations().clone();
 
+        let mut last_display_level = 0;
+        let mut last_display_instant = Instant::now();
+        let start_instant = Instant::now();
+        let progress = ProgressBar::new(
+            text_length
+                .try_into()
+                .expect("The text length doesn't fit in a 64 bits unsigned integer."),
+        );
+
         for (curr_level, curr_char) in text.chars().enumerate() {
+            // Add a layer
             let adj_for_char = automaton.get_adj_for_char(curr_char);
             jump.init_next_level(adj_for_char, &closure_for_assignations);
+
+            // Update the progress bar every 0.1s
+            if Instant::now() - last_display_instant > Duration::from_millis(100) {
+                let speed: u128 = curr_level.try_into().unwrap();
+                let speed = 1_000 * speed / (Instant::now() - start_instant).as_millis();
+                let bar_shape = format!(
+                    "{{spinner}} {{percent}}% [{{bar:30}}] {{elapsed_precise}} {}/s {{wide_msg}} \
+                     [wip] levels",
+                    HumanBytes(speed.try_into().unwrap())
+                );
+                progress.set_style(
+                    ProgressStyle::default_bar()
+                        .template(&bar_shape)
+                        .progress_chars("=> "),
+                );
+                progress.inc((curr_level - last_display_level).try_into().unwrap());
+                last_display_level = curr_level;
+                last_display_instant = Instant::now();
+            }
         }
+
+        progress.finish();
 
         IndexedDag {
             automaton,

@@ -4,6 +4,7 @@ mod matrix;
 mod regex;
 
 extern crate clap;
+extern crate indicatif;
 extern crate rand;
 extern crate regex_syntax;
 
