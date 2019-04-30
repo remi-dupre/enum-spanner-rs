@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use super::super::automaton::Automaton;
 use super::super::mapping::{Mapping, Marker};
+use super::super::settings;
 use super::jump::Jump;
 
 /// DAG built from the product automaton of a variable automaton and a text.
@@ -43,10 +44,15 @@ impl<'a> IndexedDag {
             let adj_for_char = automaton.get_adj_for_char(curr_char);
             jump.init_next_level(adj_for_char, &closure_for_assignations);
 
-            // Update the progress bar every 0.1s
-            if Instant::now() - last_display_instant > Duration::from_millis(100) {
+            // Update the progress bar periodicaly
+            if Instant::now() - last_display_instant
+                > Duration::from_millis(settings::PROGRESS_REFRESH_DELAY.into())
+            {
+                // Compute average speed so far
                 let speed: u128 = curr_level.try_into().unwrap();
                 let speed = 1_000 * speed / (Instant::now() - start_instant).as_millis();
+
+                // Update informations
                 let bar_shape = format!(
                     "{{spinner}} {{percent}}% [{{bar:30}}] {{elapsed_precise}} {}/s {{wide_msg}} \
                      [wip] levels",
@@ -57,6 +63,8 @@ impl<'a> IndexedDag {
                         .template(&bar_shape)
                         .progress_chars("=> "),
                 );
+
+                // Reset counters
                 progress.inc((curr_level - last_display_level).try_into().unwrap());
                 last_display_level = curr_level;
                 last_display_instant = Instant::now();
@@ -72,7 +80,7 @@ impl<'a> IndexedDag {
         }
     }
 
-    fn follow_SpSm(
+    fn follow_sp_sm(
         &self,
         gamma: &Vec<usize>,
         s_p: &HashSet<&Marker>,
@@ -166,7 +174,7 @@ impl<'a> IndexedDag {
         let mut stack = vec![(HashSet::new(), HashSet::new())];
 
         while let Some((mut s_p, mut s_m)) = stack.pop() {
-            let mut gamma2 = Some(self.follow_SpSm(gamma, &s_p, &s_m));
+            let mut gamma2 = Some(self.follow_sp_sm(gamma, &s_p, &s_m));
 
             if gamma2.as_ref().unwrap().is_empty() {
                 continue;
@@ -175,7 +183,7 @@ impl<'a> IndexedDag {
             while s_p.len() + s_m.len() < k.len() {
                 let depth = s_p.len() + s_m.len();
                 s_p.insert(*k[depth]);
-                gamma2 = Some(self.follow_SpSm(gamma, &s_p, &s_m));
+                gamma2 = Some(self.follow_sp_sm(gamma, &s_p, &s_m));
 
                 if !gamma2.as_ref().unwrap().is_empty() {
                     let mut new_s_p = s_p.clone();
@@ -191,7 +199,7 @@ impl<'a> IndexedDag {
             }
 
             let gamma2 = match gamma2 {
-                None => self.follow_SpSm(gamma, &s_p, &s_m),
+                None => self.follow_sp_sm(gamma, &s_p, &s_m),
                 Some(val) => val,
             };
 

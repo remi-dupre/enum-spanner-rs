@@ -2,6 +2,7 @@ mod automaton;
 mod mapping;
 mod matrix;
 mod regex;
+mod settings;
 
 extern crate clap;
 extern crate indicatif;
