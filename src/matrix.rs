@@ -1,10 +1,16 @@
 use std::fmt;
 use std::ops::{Index, Mul};
 
+/// Naive representation of a matrix as a single consecutive chunk of memory.
 pub struct Matrix<T> {
     height: usize,
     width: usize,
     data: Vec<T>,
+}
+
+// Custom trait for matrices that can be right-multiplied by a column vector.
+pub trait ColMul<U> {
+    fn col_mul(&self, column: &Vec<U>) -> Vec<U>;
 }
 
 impl<'a, T> Matrix<T>
@@ -56,6 +62,13 @@ where
     }
 }
 
+//  ____              _                    __  __       _        _
+// | __ )  ___   ___ | | ___  __ _ _ __   |  \/  | __ _| |_ _ __(_) ___ ___  ___
+// |  _ \ / _ \ / _ \| |/ _ \/ _` | '_ \  | |\/| |/ _` | __| '__| |/ __/ _ \/ __|
+// | |_) | (_) | (_) | |  __/ (_| | | | | | |  | | (_| | |_| |  | | (_|  __/\__ \
+// |____/ \___/ \___/|_|\___|\__,_|_| |_| |_|  |_|\__,_|\__|_|  |_|\___\___||___/
+//
+
 impl Mul for &Matrix<bool> {
     type Output = Matrix<bool>;
 
@@ -63,9 +76,9 @@ impl Mul for &Matrix<bool> {
         let data = (0..self.height)
             .map(|row| {
                 (0..other.width).map(move |col| {
-                    self.iter_row(row)
-                        .zip(other.iter_col(col))
-                        .any(|(&x, &y)| x && y)
+                    let row_iter = self.iter_row(row);
+                    let col_iter = self.iter_col(col);
+                    row_iter.zip(col_iter).any(|(&x, &y)| x && y)
                 })
             })
             .flatten()
@@ -76,6 +89,18 @@ impl Mul for &Matrix<bool> {
             height: self.height,
             data,
         }
+    }
+}
+
+impl ColMul<bool> for Matrix<bool> {
+    fn col_mul(&self, column: &Vec<bool>) -> Vec<bool> {
+        (0..self.height)
+            .map(|row| {
+                let row_iter = self.iter_row(row);
+                let col_iter = column.iter();
+                row_iter.zip(col_iter).any(|(&x, &y)| x && y)
+            })
+            .collect()
     }
 }
 
