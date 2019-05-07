@@ -58,7 +58,7 @@ impl Automaton {
         0
     }
 
-    pub fn nb_states(&self) -> usize {
+    pub fn get_nb_states(&self) -> usize {
         self.nb_states
     }
 
@@ -69,7 +69,7 @@ impl Automaton {
     /// Get the adjacency list representing transitions of the automaton that can be used when
     /// reading a given char.
     pub fn get_adj_for_char(&mut self, x: char) -> &Vec<Vec<usize>> {
-        let nb_states = self.nb_states();
+        let nb_states = self.get_nb_states();
         let adj_for_char = &mut self.adj_for_char;
         let transitions = &self.transitions;
 
@@ -151,7 +151,7 @@ impl Automaton {
 
     fn init_assignations(&self) -> Vec<Vec<(Rc<Label>, usize)>> {
         // Compute adjacency list
-        let mut adj = vec![Vec::new(); self.nb_states()];
+        let mut adj = vec![Vec::new(); self.get_nb_states()];
 
         for (source, label, target) in &self.transitions {
             if let Label::Assignation(_) = **label {
@@ -164,7 +164,7 @@ impl Automaton {
 
     fn init_rev_assignations(&self) -> Vec<Vec<(Rc<Label>, usize)>> {
         // Compute adjacency list
-        let mut adj = vec![Vec::new(); self.nb_states()];
+        let mut adj = vec![Vec::new(); self.get_nb_states()];
 
         for (source, label, target) in &self.transitions {
             if let Label::Assignation(_) = **label {
@@ -178,14 +178,14 @@ impl Automaton {
     fn init_closure_for_assignations(&self) -> Vec<Vec<usize>> {
         // Compute adjacency list
         let assignations = self.get_assignations();
-        let adj: Vec<Vec<usize>> = (0..self.nb_states())
+        let adj: Vec<Vec<usize>> = (0..self.get_nb_states())
             .map(|i| assignations[i].iter().map(|(_, j)| *j).collect())
             .collect();
 
         // Compute closure
-        let mut closure = vec![Vec::new(); self.nb_states()];
+        let mut closure = vec![Vec::new(); self.get_nb_states()];
 
-        for state in 0..self.nb_states() {
+        for state in 0..self.get_nb_states() {
             let mut heap = vec![state];
             let mut seen = HashSet::new();
             seen.insert(state);

@@ -50,7 +50,7 @@ impl<'a> IndexedDag {
             {
                 // Compute average speed so far
                 let speed: u128 = curr_level.try_into().unwrap();
-                let speed = 1_000 * speed / (Instant::now() - start_instant).as_millis();
+                let speed = 1_000 * speed / start_instant.elapsed().as_millis();
 
                 // Update informations
                 let bar_shape = format!(

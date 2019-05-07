@@ -63,6 +63,7 @@ impl Jump {
     /// Compute next level given the adjacency list of jumpable edges from current level to the
     /// next one and adjacency list of non-jumpable edges inside the next level.
     pub fn init_next_level(&mut self, jump_adj: &Vec<Vec<usize>>, nonjump_adj: &Vec<Vec<usize>>) {
+        let nonjump_vertices = &self.nonjump_vertices;
         let levelset = &mut self.levelset;
         let jl = &mut self.jl;
 
@@ -74,19 +75,34 @@ impl Jump {
 
         // Register jumpable transitions from this level to the next one
         for source in last_level_vertices {
-            for target in &jump_adj[source] {
-                // TODO: Keep the entry and only search once in the hashmap.
-                let target_jl = *jl.entry((next_level, *target)).or_insert_with(|| {
-                    levelset.register(next_level, *target);
-                    0
-                });
+            // Notice that `source_jl` can be None, however, if it is not in nonjump_vertices it
+            // is sure that it is not None since it was necessary added by following an atomic
+            // transition.
+            let source_jl = jl.get(&(last_level, source)).cloned();
 
-                if self.nonjump_vertices.contains(&(last_level, source)) {
-                    jl.insert((next_level, *target), last_level);
-                } else {
-                    let source_jl = jl[&(last_level, source)];
-                    jl.insert((next_level, *target), max(source_jl, target_jl));
-                }
+            for &target in &jump_adj[source] {
+                // Compute the level target will jump to, depending if there is already an assigned
+                // jump level for target or not.
+                let cmpt_jump_level = |previous_jl| {
+                    if nonjump_vertices.contains(&(last_level, source)) {
+                        last_level
+                    } else {
+                        match previous_jl {
+                            None => source_jl.unwrap(),
+                            Some(previous_jl) => max(source_jl.unwrap(), previous_jl),
+                        }
+                    }
+                };
+
+                // Update the jump level in a single hashmap access.
+                jl.entry((next_level, target))
+                    .and_modify(|target_jl| {
+                        *target_jl = cmpt_jump_level(Some(*target_jl));
+                    })
+                    .or_insert_with(|| {
+                        levelset.register(next_level, target);
+                        cmpt_jump_level(None)
+                    });
             }
         }
 
@@ -159,9 +175,9 @@ impl Jump {
         let old_level = levelset.get_level(level).unwrap().clone();
 
         for source in old_level {
-            for target in &nonjump_adj[source] {
-                levelset.register(level, *target);
-                nonjump_vertices.insert((level, *target));
+            for &target in &nonjump_adj[source] {
+                levelset.register(level, target);
+                nonjump_vertices.insert((level, target));
             }
         }
     }
@@ -181,7 +197,7 @@ impl Jump {
             level,
             curr_level
                 .iter()
-                .filter_map(|source| jl.get(&(level, *source)).map(|target| *target))
+                .filter_map(|&source| jl.get(&(level, source)).map(|&target| target))
                 .collect(),
         );
 
@@ -192,24 +208,22 @@ impl Jump {
             rev_rlevel.get_mut(sublevel).unwrap().insert(level);
         }
 
-        // Update reach
+        // Compute the adjacency between current level and the previous one.
         let prev_level = self.levelset.get_level(level - 1).unwrap();
-        reach.insert(
-            (level - 1, level),
-            Matrix::new(prev_level.len(), curr_level.len(), false),
-        );
+        let mut new_reach = Matrix::new(prev_level.len(), curr_level.len(), false);
 
         for &source in prev_level {
+            let id_source = *self.levelset.get_vertex_index(level - 1, source).unwrap();
+
             for &target in &jump_adj[source] {
-                let id_source = *self.levelset.get_vertex_index(level - 1, source).unwrap();
                 let id_target = *self.levelset.get_vertex_index(level, target).unwrap();
-                *reach
-                    .get_mut(&(level - 1, level))
-                    .unwrap()
-                    .at(id_source, id_target) = true;
+                *new_reach.at(id_source, id_target) = true;
             }
         }
 
+        reach.insert((level - 1, level), new_reach);
+
+        // Compute by a dynamic algorithm the adjacency of current level with all its sublevels.
         for &sublevel in &rlevel[&level] {
             // This eliminates the stupid cast of level 0.
             // TODO: fix this hardcoded behaviour.
