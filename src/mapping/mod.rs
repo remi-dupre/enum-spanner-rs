@@ -4,6 +4,7 @@ pub mod naive;
 mod jump;
 mod levelset;
 
+use std::cmp::{Ord, PartialOrd};
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -19,22 +20,12 @@ extern crate rand;
 // | |  | | (_| | |_) | |_) | | | | | (_| |
 // |_|  |_|\__,_| .__/| .__/|_|_| |_|\__, |
 //              |_|   |_|            |___/
+
 /// Map a set of variables to spans [i, i'> over a text.
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Mapping<'a> {
     text: &'a str,
     maps: HashMap<&'a Variable, Range<usize>>,
-}
-
-impl<'a> fmt::Display for Mapping<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (var, range) in self.maps.iter() {
-            // write!(f, "{}: {} ", var, &self.text[*start..*end]).unwrap();
-            write!(f, "{}: ({}, {}) ", var, range.start, range.end)?;
-        }
-
-        Ok(())
-    }
 }
 
 impl<'a> Mapping<'a> {
@@ -88,13 +79,41 @@ impl<'a> Mapping<'a> {
     }
 }
 
+impl<'a> std::hash::Hash for Mapping<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.text.hash(state);
+
+        let mut assignments: Vec<_> = self.maps.iter().collect();
+        assignments.sort_by(|&a, &b| {
+            let key = |x: (&&'a Variable, &Range<usize>)| (*x.0, x.1.start, x.1.end);
+            key(a).cmp(&key(b))
+        });
+
+        for assignment in assignments {
+            assignment.hash(state);
+        }
+    }
+}
+
+impl<'a> fmt::Display for Mapping<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for (var, range) in self.maps.iter() {
+            // write!(f, "{}: {} ", var, &self.text[*start..*end]).unwrap();
+            write!(f, "{}: ({}, {}) ", var, range.start, range.end)?;
+        }
+
+        Ok(())
+    }
+}
+
 // __     __         _       _     _
 // \ \   / /_ _ _ __(_) __ _| |__ | | ___
 //  \ \ / / _` | '__| |/ _` | '_ \| |/ _ \
 //   \ V / (_| | |  | | (_| | |_) | |  __/
 //    \_/ \__,_|_|  |_|\__,_|_.__/|_|\___|
 //
-#[derive(Clone, Debug)]
+
+#[derive(Clone, Debug, PartialOrd, Ord)]
 pub struct Variable {
     id: u64,
     name: String,
@@ -138,7 +157,7 @@ impl Variable {
 // | |  | | (_| | |  |   <  __/ |
 // |_|  |_|\__,_|_|  |_|\_\___|_|
 //
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub enum Marker {
     Open(Variable),
     Close(Variable),
