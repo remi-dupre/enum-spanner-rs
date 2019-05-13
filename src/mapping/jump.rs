@@ -21,6 +21,8 @@ pub struct Jump {
     /// Set of vertices that can't be jumped since it has an ingoing non-jumpable edge.
     /// NOTE: it may only be required to store it for the last level.
     nonjump_vertices: HashSet<(usize, usize)>,
+    /// Keep track of number of jumps to a given vertex.
+    count_ingoing_jumps: HashMap<(usize, usize), usize>,
 
     /// Closest level where an assignation is done accessible from any node.
     jl: HashMap<(usize, usize), usize>,
@@ -42,6 +44,7 @@ impl Jump {
             levelset: LevelSet::new(),
             last_level: 0,
             nonjump_vertices: HashSet::new(),
+            count_ingoing_jumps: HashMap::new(),
             jl: HashMap::new(),
             rlevel: HashMap::new(),
             rev_rlevel: HashMap::new(),
@@ -54,6 +57,7 @@ impl Jump {
         for state in initial_level {
             jump.levelset.register(state, 0);
             jump.jl.insert((0, state), 0);
+            jump.count_ingoing_jumps.insert((0, state), 0);
         }
 
         jump.extend_level(0, nonjump_adj);
@@ -189,6 +193,7 @@ impl Jump {
         let rlevel = &mut self.rlevel;
         let rev_rlevel = &mut self.rev_rlevel;
         let jl = &self.jl;
+        let count_ingoing_jumps = &mut self.count_ingoing_jumps;
 
         let curr_level = self.levelset.get_level(level).unwrap();
 
@@ -241,8 +246,67 @@ impl Jump {
             reach.remove(&(level - 1, level));
         }
 
-        // Update Jump counters
-        // TODO
+        // Init Jump counters for current level
+        for &vertex in curr_level {
+            count_ingoing_jumps.insert((level, vertex), 0);
+        }
+
+        // Update Jump counters previous level
+        let mut to_clean = Vec::new();
+
+        for &sublevel in &rlevel[&level] {
+            let adjacency = &reach[&(sublevel, level)];
+
+            for (vertex, vertex_index) in self.levelset.iter_level(sublevel) {
+                let nb_pointers: usize = adjacency
+                    .iter_row(vertex_index)
+                    .map(|&x| if x { 1 } else { 0 })
+                    .sum();
+
+                if nb_pointers != 0 {
+                    *count_ingoing_jumps.get_mut(&(sublevel, vertex)).unwrap() += nb_pointers;
+                } else if count_ingoing_jumps.get(&(sublevel, vertex)) == Some(&0) {
+                    to_clean.push((sublevel, vertex_index));
+                }
+            }
+        }
+
+        self.clean_vertices(to_clean);
+    }
+
+    fn clean_vertices(&mut self, mut to_clean: Vec<(usize, usize)>) {
+        println!("----");
+        let count_ingoing_jumps = &mut self.count_ingoing_jumps;
+        let levelset = &mut self.levelset;
+        let rlevel = &mut self.rlevel;
+        let reach = &mut self.reach;
+
+        // Update jump counters to the closest sublevel
+        while let Some((level, vertex_index)) = to_clean.pop() {
+            println!("Clean {}|{}", level, vertex_index);
+            // levelset.remove_from_level(level, iter::once(vertex_index).collect());
+
+            let sublevel = *rlevel[&level].iter().max().unwrap();
+            let subreach = &reach[&(sublevel, level)];
+
+            for (subvertex_index, adj) in subreach.iter_col(vertex_index).enumerate() {
+                if !adj {
+                    continue;
+                }
+
+                // TODO: counters should be indexed with the vertex index here (using a Vec?)
+                let subvertex = levelset.get_level(sublevel).unwrap()[subvertex_index];
+                let counter = count_ingoing_jumps.get_mut(&(sublevel, subvertex)).unwrap();
+
+                if *counter > 0 {
+                    *counter -= 1;
+                }
+
+                if *counter == 0 {
+                    to_clean.push((sublevel, subvertex_index));
+                }
+            }
+        }
     }
 }
 

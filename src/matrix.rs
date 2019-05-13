@@ -1,5 +1,8 @@
 use std::fmt;
+use std::iter;
 use std::ops::{Index, Mul};
+
+use super::tools::iter_complement;
 
 /// Naive representation of a matrix as a single consecutive chunk of memory.
 pub struct Matrix<T> {
@@ -17,6 +20,7 @@ impl<'a, T> Matrix<T>
 where
     T: Copy + Default,
 {
+    /// Create a matrix filled with one value.
     pub fn new(height: usize, width: usize, value: T) -> Matrix<T> {
         Matrix {
             width,
@@ -25,11 +29,13 @@ where
         }
     }
 
+    /// Mutable access to an element of the matrix.
     pub fn at(&mut self, row: usize, col: usize) -> &mut T {
         let index = self.data_index(row, col);
         &mut self.data[index]
     }
 
+    /// Get an iterator over a column of the matrix.
     pub fn iter_col(&self, col: usize) -> impl Iterator<Item = &T> {
         assert!(col < self.width);
         self.data
@@ -39,15 +45,69 @@ where
             .take(self.height)
     }
 
+    /// Get an iterator over a row of the matrix.
     pub fn iter_row(&self, row: usize) -> impl Iterator<Item = &T> {
         assert!(row < self.height);
         self.data.iter().skip(row * self.width).take(self.width)
     }
 
+    /// Truncate rows and columns from a matrix.
+    pub fn truncate<U, V>(&self, del_rows: U, del_cols: V) -> Matrix<T>
+    where
+        U: Iterator<Item = usize>,
+        V: Iterator<Item = usize>,
+    {
+        let mut del_rows: Vec<_> = del_rows.collect();
+        let mut del_cols: Vec<_> = del_cols.collect();
+        del_rows.sort();
+        del_cols.sort();
+
+        let kept_rows = iter_complement(0, self.height, del_rows.into_iter());
+        let kept_cols = iter_complement(0, self.width, del_cols.into_iter());
+
+        self.submatrix_sorted(kept_rows, kept_cols)
+    }
+
+    pub fn del_row(&self, row: usize) -> Matrix<T> {
+        self.truncate(iter::once(row), iter::empty())
+    }
+
+    pub fn del_col(&self, col: usize) -> Matrix<T> {
+        self.truncate(iter::empty(), iter::once(col))
+    }
+
+    /// Get the index of a cell in the data vector.
     fn data_index(&self, row: usize, col: usize) -> usize {
         assert!(col < self.width);
         assert!(row < self.height);
         col + (row * self.width)
+    }
+
+    /// Get a submatrix containing only some rows and columns given as sorted iterator.
+    fn submatrix_sorted<U, V>(&self, rows: U, cols: V) -> Matrix<T>
+    where
+        U: Iterator<Item = usize> + Clone,
+        V: Iterator<Item = usize> + Clone,
+        T: Clone,
+    {
+        let mut all_data_iter = self.data.iter();
+        let indices = rows
+            .clone()
+            .map(|row| cols.clone().map(move |col| self.data_index(row, col)))
+            .flatten();
+        let data = indices
+            .scan(0, |expected_index, index| {
+                let val = all_data_iter.nth(index - *expected_index);
+                *expected_index = index + 1;
+                val.cloned()
+            })
+            .collect();
+
+        Matrix {
+            width: rows.count(),
+            height: cols.count(),
+            data,
+        }
     }
 }
 
@@ -61,6 +121,39 @@ where
         &self.data[self.data_index(row, col)]
     }
 }
+
+//  ____        _                     _        _        ___ _
+// / ___| _   _| |__  _ __ ___   __ _| |_ _ __(_)_  __ |_ _| |_ ___ _ __
+// \___ \| | | | '_ \| '_ ` _ \ / _` | __| '__| \ \/ /  | || __/ _ \ '__|
+//  ___) | |_| | |_) | | | | | | (_| | |_| |  | |>  <   | || ||  __/ |
+// |____/ \__,_|_.__/|_| |_| |_|\__,_|\__|_|  |_/_/\_\ |___|\__\___|_|
+//
+
+// /// Iterator over data of a submatrix.
+// struct SubmatrixIterator<'a, T, U, V>
+// where
+//     U: Iterator<Item = usize>,
+//     V: Iterator<Item = usize>,
+// {
+//     matrix: &'a Matrix<T>,
+//
+//     /// Sorted iterator over row indices.
+//     iter_rows: U,
+//     /// Sorted iterator over column indices.
+//     iter_cols: V,
+// }
+//
+// impl<'a, T, U, V> Iterator for SubmatrixIterator<'a, T, U, V>
+// where
+//     U: Iterator<Item = usize>,
+//     V: Iterator<Item = usize>,
+// {
+//     type Item = &'a T;
+//
+//     fn next(&mut self) -> Option<&'a T> {
+//         None
+//     }
+// }
 
 //  ____              _                    __  __       _        _
 // | __ )  ___   ___ | | ___  __ _ _ __   |  \/  | __ _| |_ _ __(_) ___ ___  ___
@@ -77,7 +170,7 @@ impl Mul for &Matrix<bool> {
             .map(|row| {
                 (0..other.width).map(move |col| {
                     let row_iter = self.iter_row(row);
-                    let col_iter = self.iter_col(col);
+                    let col_iter = other.iter_col(col);
                     row_iter.zip(col_iter).any(|(&x, &y)| x && y)
                 })
             })
@@ -103,6 +196,13 @@ impl ColMul<bool> for Matrix<bool> {
             .collect()
     }
 }
+
+//  ____       _
+// |  _ \  ___| |__  _   _  __ _
+// | | | |/ _ \ '_ \| | | |/ _` |
+// | |_| |  __/ |_) | |_| | (_| |
+// |____/ \___|_.__/ \__,_|\__, |
+//                         |___/
 
 impl fmt::Debug for Matrix<bool> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::iter;
 
 /// Represent the partitioning into levels of a product graph.
 ///
@@ -30,6 +31,16 @@ impl LevelSet {
         self.vertex_index.get(&(level, vertex))
     }
 
+    /// Iterate over pairs (vertex, vertex_index) of a level
+    pub fn iter_level<'a>(&'a self, level: usize) -> impl Iterator<Item = (usize, usize)> + 'a {
+        let vertices = self.levels[&level].iter();
+        let levels = iter::repeat(level);
+
+        levels
+            .zip(vertices)
+            .map(move |(level, &vertex)| (vertex, self.vertex_index[&(level, vertex)]))
+    }
+
     /// Save a vertex in a level, the vertex need to be unique inside this level but can be
     /// registered in other levels.
     pub fn register(&mut self, level: usize, vertex: usize) {
@@ -52,7 +63,7 @@ impl LevelSet {
     }
 
     /// Remove a set of vertices from a level, if the level is left empty, it is then removed.
-    pub fn remove_from_level<T>(&mut self, level: usize, del_vertices: HashSet<usize>) {
+    pub fn remove_from_level(&mut self, level: usize, del_vertices: HashSet<usize>) {
         let mut new_level = Vec::new();
 
         if let Some(old_level) = self.levels.get(&level) {

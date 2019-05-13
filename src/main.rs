@@ -3,6 +3,7 @@ mod mapping;
 mod matrix;
 mod regex;
 mod settings;
+mod tools;
 
 extern crate clap;
 extern crate indicatif;
