@@ -69,7 +69,7 @@ where
         )?;
 
         // Compile the regex.
-        write!(stream, " - Compiling the regex  ... ")?;
+        write!(stream, " - Compiling regex      ... ")?;
         stream.flush()?;
         let timer = Instant::now();
 

@@ -110,9 +110,9 @@ impl Jump {
             }
         }
 
-        levelset
-            .get_level(next_level)
-            .expect("Behaviour not implemented for empty output");
+        if levelset.get_level(next_level) == None {
+            return;
+        }
 
         // NOTE: isn't there a better way of organizing this?
         self.extend_level(next_level, nonjump_adj);

@@ -14,7 +14,7 @@ use super::mapping::Marker;
 //  / ___ \ |_| | || (_) | | | | | | (_| | || (_) | | | |
 // /_/   \_\__,_|\__\___/|_| |_| |_|\__,_|\__\___/|_| |_|
 //
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Automaton {
     pub nb_states: usize,
     pub transitions: Vec<(usize, Rc<Label>, usize)>,

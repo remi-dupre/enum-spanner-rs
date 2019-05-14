@@ -107,13 +107,13 @@ fn main() {
         .render("automaton.dot")
         .expect("Could not create the dotfile.");
 
-    let compiled_matches = mapping::IndexedDag::compile(regex, text.clone());
+    let compiled_matches = regex::iter_matches(&regex, text.as_str());
 
     if count {
-        let count = compiled_matches.iter().count();
+        let count = compiled_matches.count();
         println!("{}", count)
     } else {
-        for (count, mapping) in compiled_matches.iter().enumerate() {
+        for (count, mapping) in compiled_matches.enumerate() {
             print!("{} -", count);
 
             for (name, range) in mapping.iter_groups() {

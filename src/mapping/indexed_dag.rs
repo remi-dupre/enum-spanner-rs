@@ -55,8 +55,9 @@ impl<'a> IndexedDag {
                 // Update informations
                 let bar_shape = format!(
                     "{{spinner}} {{percent}}% [{{bar:30}}] {{elapsed_precise}} {}/s {{wide_msg}} \
-                     [wip] levels",
-                    HumanBytes(speed.try_into().unwrap())
+                     {} levels",
+                    HumanBytes(speed.try_into().unwrap()),
+                    jump.get_nb_levels()
                 );
                 progress.set_style(
                     ProgressStyle::default_bar()

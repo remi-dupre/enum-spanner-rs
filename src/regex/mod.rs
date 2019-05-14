@@ -20,6 +20,7 @@ pub fn iter_matches<'a>(
     automaton: &'a Automaton,
     text: &'a str,
 ) -> impl Iterator<Item = mapping::Mapping<'a>> {
+    mapping::IndexedDag::compile(automaton.clone(), text.to_string());
     mapping::naive::NaiveEnum::new(automaton, &text)
 }
 
