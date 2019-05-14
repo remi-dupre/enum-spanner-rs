@@ -4,7 +4,7 @@ pub mod naive;
 mod jump;
 mod levelset;
 
-use std::cmp::{Ord, PartialOrd};
+use std::cmp::Ord;
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -185,3 +185,13 @@ impl fmt::Display for Marker {
         }
     }
 }
+
+//  _____         _
+// |_   _|__  ___| |_ ___
+//   | |/ _ \/ __| __/ __|
+//   | |  __/\__ \ |_\__ \
+//   |_|\___||___/\__|___/
+//
+
+#[cfg(test)]
+mod tests;
