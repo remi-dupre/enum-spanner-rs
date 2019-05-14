@@ -1,4 +1,5 @@
 mod automaton;
+mod benchmark;
 mod mapping;
 mod matrix;
 mod regex;
@@ -12,7 +13,7 @@ extern crate regex_syntax;
 
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::stdin;
+use std::io::{stdin, stdout};
 
 use clap::{App, Arg};
 
@@ -27,6 +28,11 @@ fn main() {
         .version("0.1")
         .author("Rémi Dupré <remi.dupre@ens-paris-saclay.fr>")
         .about("Enumerate all matches of a regular expression on a text.")
+        .arg(
+            Arg::with_name("benchmark")
+                .long("benchmark")
+                .help("Run benchmarks."),
+        )
         .arg(
             Arg::with_name("regex")
                 .help("The pattern to look for.")
@@ -51,9 +57,29 @@ fn main() {
         .get_matches();
 
     // Extract parameters
-    let show_offset = matches.is_present("bytes_offset");
+    let benchmark = matches.is_present("benchmark");
     let count = matches.is_present("count");
-    let regex = matches.value_of("regex").unwrap(); // Safe unwrap
+    let regex = matches.value_of("regex").unwrap();
+    let show_offset = matches.is_present("bytes_offset");
+
+    //  ____                  _                          _
+    // | __ )  ___ _ __   ___| |__  _ __ ___   __ _ _ __| | __
+    // |  _ \ / _ \ '_ \ / __| '_ \| '_ ` _ \ / _` | '__| |/ /
+    // | |_) |  __/ | | | (__| | | | | | | | | (_| | |  |   <
+    // |____/ \___|_| |_|\___|_| |_|_| |_| |_|\__,_|_|  |_|\_\
+    //
+
+    if benchmark {
+        benchmark::run_all_tests(&mut stdout()).unwrap();
+        return;
+    }
+
+    //  ___                   _
+    // |_ _|_ __  _ __  _   _| |_ ___
+    //  | || '_ \| '_ \| | | | __/ __|
+    //  | || | | | |_) | |_| | |_\__ \
+    // |___|_| |_| .__/ \__,_|\__|___/
+    //           |_|
 
     // Read the text
     let mut text = String::new();
@@ -84,7 +110,7 @@ fn main() {
     let compiled_matches = mapping::IndexedDag::compile(regex, text.clone());
 
     if count {
-        let count: u64 = compiled_matches.iter().map(|_| 1).sum();
+        let count = compiled_matches.iter().count();
         println!("{}", count)
     } else {
         for (count, mapping) in compiled_matches.iter().enumerate() {

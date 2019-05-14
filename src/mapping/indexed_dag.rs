@@ -71,7 +71,7 @@ impl<'a> IndexedDag {
             }
         }
 
-        progress.finish();
+        progress.finish_and_clear();
 
         IndexedDag {
             automaton,
@@ -80,67 +80,48 @@ impl<'a> IndexedDag {
         }
     }
 
-    fn follow_sp_sm(
-        &self,
-        gamma: &Vec<usize>,
-        s_p: &HashSet<&Marker>,
-        s_m: &HashSet<&Marker>,
-    ) -> Vec<usize> {
-        let adj = self.automaton.get_rev_assignations();
-        let mut path_set: HashMap<usize, Option<HashSet<_>>> = HashMap::new();
+    /// TODO: implement this as an iterable.
+    pub fn iter(&'a self) -> impl Iterator<Item = Mapping<'a>> {
+        // Only start with accessible final states
+        let start = self
+            .jump
+            .finals()
+            .intersection(&self.automaton.finals.iter().map(|x| *x).collect())
+            .map(|x| *x)
+            .collect();
+        let mut stack = vec![(self.text.chars().count(), start, HashSet::new())];
+        let mut ret = Vec::new();
 
-        for &state in gamma {
-            path_set.insert(state, Some(HashSet::new()));
-        }
-
-        // TODO: Move this to a `tools` module.
-        let are_incomparable = |set1: &HashSet<_>, set2: &HashSet<_>| {
-            set1.iter().any(|x| !set2.contains(x)) && set2.iter().any(|x| !set1.contains(x))
-        };
-
-        // NOTE: Consider writing this as a recursive function?
-        let mut queue: VecDeque<_> = gamma.iter().map(|x| *x).collect();
-
-        while let Some(source) = queue.pop_front() {
-            for (label, target) in &adj[source] {
-                let label = label.get_marker().unwrap();
-
-                if s_m.contains(label) {
+        while let Some((level, gamma, mapping)) = stack.pop() {
+            for (s_p, new_gamma) in self.next_level(&gamma).into_iter() {
+                if new_gamma.is_empty() {
                     continue;
                 }
 
-                if !path_set.contains_key(target) {
-                    queue.push_back(*target);
+                let mut new_mapping = mapping.clone();
+                for marker in s_p {
+                    new_mapping.insert((marker, level));
                 }
 
-                let mut new_ps = path_set[&source].clone().unwrap();
-
-                if s_p.contains(label) {
-                    new_ps.insert(label);
+                if level == 0 && new_gamma.contains(&self.automaton.get_initial()) {
+                    ret.push(new_mapping);
+                } else if let Some((jump_level, jump_gamma)) =
+                    self.jump.jump(level, new_gamma.into_iter())
+                {
+                    if !jump_gamma.is_empty() {
+                        stack.push((jump_level, jump_gamma, new_mapping));
+                    }
                 }
-
-                path_set
-                    .entry(*target)
-                    .and_modify(|entry| {
-                        if let Some(old_ps) = entry {
-                            if are_incomparable(&new_ps, old_ps) {
-                                *entry = None;
-                            } else {
-                                *entry = Some(new_ps.clone());
-                            }
-                        }
-                    })
-                    .or_insert(Some(new_ps));
             }
         }
 
-        path_set
-            .iter()
-            .filter_map(|(vertex, vertex_ps)| match vertex_ps {
-                Some(vertex_ps) if vertex_ps.len() == s_p.len() => Some(*vertex),
-                _ => None,
-            })
-            .collect()
+        ret.into_iter().map(move |marker_assigns| {
+            Mapping::from_markers(&self.text, marker_assigns.into_iter())
+        })
+    }
+
+    pub fn get_nb_levels(&self) -> usize {
+        self.jump.get_nb_levels()
     }
 
     /// TODO: implement this as an iterable.
@@ -209,43 +190,66 @@ impl<'a> IndexedDag {
         res
     }
 
-    /// TODO: implement this as an iterable.
-    pub fn iter(&'a self) -> impl Iterator<Item = Mapping<'a>> {
-        // Only start with accessible final states
-        let start = self
-            .jump
-            .finals()
-            .intersection(&self.automaton.finals.iter().map(|x| *x).collect())
-            .map(|x| *x)
-            .collect();
-        let mut stack = vec![(self.text.chars().count(), start, HashSet::new())];
-        let mut ret = Vec::new();
+    fn follow_sp_sm(
+        &self,
+        gamma: &Vec<usize>,
+        s_p: &HashSet<&Marker>,
+        s_m: &HashSet<&Marker>,
+    ) -> Vec<usize> {
+        let adj = self.automaton.get_rev_assignations();
+        let mut path_set: HashMap<usize, Option<HashSet<_>>> = HashMap::new();
 
-        while let Some((level, gamma, mapping)) = stack.pop() {
-            for (s_p, new_gamma) in self.next_level(&gamma).into_iter() {
-                if new_gamma.is_empty() {
+        for &state in gamma {
+            path_set.insert(state, Some(HashSet::new()));
+        }
+
+        // TODO: Move this to a `tools` module.
+        let are_incomparable = |set1: &HashSet<_>, set2: &HashSet<_>| {
+            set1.iter().any(|x| !set2.contains(x)) && set2.iter().any(|x| !set1.contains(x))
+        };
+
+        // NOTE: Consider writing this as a recursive function?
+        let mut queue: VecDeque<_> = gamma.iter().map(|x| *x).collect();
+
+        while let Some(source) = queue.pop_front() {
+            for (label, target) in &adj[source] {
+                let label = label.get_marker().unwrap();
+
+                if s_m.contains(label) {
                     continue;
                 }
 
-                let mut new_mapping = mapping.clone();
-                for marker in s_p {
-                    new_mapping.insert((marker, level));
+                if !path_set.contains_key(target) {
+                    queue.push_back(*target);
                 }
 
-                if level == 0 && new_gamma.contains(&self.automaton.get_initial()) {
-                    ret.push(new_mapping);
-                } else if let Some((jump_level, jump_gamma)) =
-                    self.jump.jump(level, new_gamma.into_iter())
-                {
-                    if !jump_gamma.is_empty() {
-                        stack.push((jump_level, jump_gamma, new_mapping));
-                    }
+                let mut new_ps = path_set[&source].clone().unwrap();
+
+                if s_p.contains(label) {
+                    new_ps.insert(label);
                 }
+
+                path_set
+                    .entry(*target)
+                    .and_modify(|entry| {
+                        if let Some(old_ps) = entry {
+                            if are_incomparable(&new_ps, old_ps) {
+                                *entry = None;
+                            } else {
+                                *entry = Some(new_ps.clone());
+                            }
+                        }
+                    })
+                    .or_insert(Some(new_ps));
             }
         }
 
-        ret.into_iter().map(move |marker_assigns| {
-            Mapping::from_markers(&self.text, marker_assigns.into_iter())
-        })
+        path_set
+            .iter()
+            .filter_map(|(vertex, vertex_ps)| match vertex_ps {
+                Some(vertex_ps) if vertex_ps.len() == s_p.len() => Some(*vertex),
+                _ => None,
+            })
+            .collect()
     }
 }

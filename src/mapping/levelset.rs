@@ -27,6 +27,10 @@ impl LevelSet {
         self.levels.get(&level)
     }
 
+    pub fn get_nb_levels(&self) -> usize {
+        self.levels.len()
+    }
+
     pub fn get_vertex_index(&self, level: usize, vertex: usize) -> Option<&usize> {
         self.vertex_index.get(&(level, vertex))
     }
