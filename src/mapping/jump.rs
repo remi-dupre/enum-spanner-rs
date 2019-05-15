@@ -110,6 +110,7 @@ impl Jump {
             }
         }
 
+        // If at some point the next level is not reached, the output will be empty anyway.
         if levelset.get_level(next_level) == None {
             return;
         }

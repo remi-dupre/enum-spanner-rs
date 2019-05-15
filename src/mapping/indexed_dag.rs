@@ -9,6 +9,13 @@ use super::super::mapping::{Mapping, Marker};
 use super::super::settings;
 use super::jump::Jump;
 
+//  ___           _                   _ ____
+// |_ _|_ __   __| | _____  _____  __| |  _ \  __ _  __ _
+//  | || '_ \ / _` |/ _ \ \/ / _ \/ _` | | | |/ _` |/ _` |
+//  | || | | | (_| |  __/>  <  __/ (_| | |_| | (_| | (_| |
+// |___|_| |_|\__,_|\___/_/\_\___|\__,_|____/ \__,_|\__, |
+//                                                  |___/
+
 /// DAG built from the product automaton of a variable automaton and a text.
 ///
 /// The structure allows to enumerate efficiently all the distinct matches of the input automata
@@ -81,7 +88,7 @@ impl<'a> IndexedDag {
         }
     }
 
-    /// TODO: implement this as an iterable.
+    /// TODO: implement this as a real iterable.
     pub fn iter(&'a self) -> impl Iterator<Item = Mapping<'a>> {
         // Only start with accessible final states
         let start = self
@@ -94,7 +101,7 @@ impl<'a> IndexedDag {
         let mut ret = Vec::new();
 
         while let Some((level, gamma, mapping)) = stack.pop() {
-            for (s_p, new_gamma) in self.next_level(&gamma).into_iter() {
+            for (s_p, new_gamma) in self.next_level(&gamma) {
                 if new_gamma.is_empty() {
                     continue;
                 }
@@ -126,8 +133,10 @@ impl<'a> IndexedDag {
     }
 
     /// TODO: implement this as an iterable.
-    fn next_level(&self, gamma: &Vec<usize>) -> Vec<(HashSet<&Marker>, Vec<usize>)> {
-        let mut res = Vec::new();
+    fn next_level(
+        &'a self,
+        gamma: &Vec<usize>,
+    ) -> impl Iterator<Item = (HashSet<&'a Marker>, Vec<usize>)> {
         let adj = self.automaton.get_rev_assignations();
 
         // Get list of variables that are part of the level
@@ -151,44 +160,7 @@ impl<'a> IndexedDag {
             }
         }
 
-        // Run over the decision tree of variables to select
-        let k: Vec<_> = k.iter().collect();
-        let mut stack = vec![(HashSet::new(), HashSet::new())];
-
-        while let Some((mut s_p, mut s_m)) = stack.pop() {
-            let mut gamma2 = Some(self.follow_sp_sm(gamma, &s_p, &s_m));
-
-            if gamma2.as_ref().unwrap().is_empty() {
-                continue;
-            }
-
-            while s_p.len() + s_m.len() < k.len() {
-                let depth = s_p.len() + s_m.len();
-                s_p.insert(*k[depth]);
-                gamma2 = Some(self.follow_sp_sm(gamma, &s_p, &s_m));
-
-                if !gamma2.as_ref().unwrap().is_empty() {
-                    let mut new_s_p = s_p.clone();
-                    let mut new_s_m = s_m.clone();
-                    new_s_m.insert(*k[depth]);
-                    new_s_p.remove(*k[depth]);
-                    stack.push((new_s_p, new_s_m));
-                } else {
-                    s_p.remove(*k[depth]);
-                    s_m.insert(*k[depth]);
-                    gamma2 = None;
-                }
-            }
-
-            let gamma2 = match gamma2 {
-                None => self.follow_sp_sm(gamma, &s_p, &s_m),
-                Some(val) => val,
-            };
-
-            res.push((s_p, gamma2));
-        }
-
-        res
+        NextLevelIterator::explore(self, k, gamma.clone())
     }
 
     fn follow_sp_sm(
@@ -252,5 +224,88 @@ impl<'a> IndexedDag {
                 _ => None,
             })
             .collect()
+    }
+}
+
+//  _   _           _   _                   _ ___ _                 _
+// | \ | | _____  _| |_| |    _____   _____| |_ _| |_ ___ _ __ __ _| |_ ___  _ __
+// |  \| |/ _ \ \/ / __| |   / _ \ \ / / _ \ || || __/ _ \ '__/ _` | __/ _ \| '__|
+// | |\  |  __/>  <| |_| |__|  __/\ V /  __/ || || ||  __/ | | (_| | || (_) | |
+// |_| \_|\___/_/\_\\__|_____\___| \_/ \___|_|___|\__\___|_|  \__,_|\__\___/|_|
+//
+
+/// Explore all feasible variable associations in a level from a set of states
+/// and resulting possible states reached for theses associations.
+struct NextLevelIterator<'a> {
+    /// TODO: only keep the automata (and reimplement follow_sp_sm here?)
+    indexed_dag: &'a IndexedDag,
+
+    /// Set of markers that can be reached in this level.
+    expected_markers: Vec<&'a Marker>,
+
+    /// Set of states we start the run from.
+    gamma: Vec<usize>,
+
+    /// Lol
+    stack: Vec<(HashSet<&'a Marker>, HashSet<&'a Marker>)>,
+}
+
+impl<'a> NextLevelIterator<'a> {
+    /// Start the exporation from the input set of states `gamma`.
+    fn explore(
+        indexed_dag: &'a IndexedDag,
+        expected_markers: HashSet<&'a Marker>,
+        gamma: Vec<usize>,
+    ) -> NextLevelIterator<'a> {
+        NextLevelIterator {
+            indexed_dag,
+            expected_markers: expected_markers.into_iter().collect(),
+            gamma: gamma,
+            stack: vec![(HashSet::new(), HashSet::new())],
+        }
+    }
+}
+
+impl<'a> Iterator for NextLevelIterator<'a> {
+    type Item = (HashSet<&'a Marker>, Vec<usize>);
+
+    fn next(&mut self) -> Option<(HashSet<&'a Marker>, Vec<usize>)> {
+        while let Some((mut s_p, mut s_m)) = self.stack.pop() {
+            let mut gamma2 = Some(self.indexed_dag.follow_sp_sm(&self.gamma, &s_p, &s_m));
+
+            if gamma2.as_ref().unwrap().is_empty() {
+                continue;
+            }
+
+            while s_p.len() + s_m.len() < self.expected_markers.len() {
+                let depth = s_p.len() + s_m.len();
+                s_p.insert(self.expected_markers[depth]);
+                gamma2 = Some(self.indexed_dag.follow_sp_sm(&self.gamma, &s_p, &s_m));
+
+                if !gamma2.as_ref().unwrap().is_empty() {
+                    // If current pair Sp/Sm is feasible, add the other branch
+                    // to the stack.
+                    let mut new_s_p = s_p.clone();
+                    let mut new_s_m = s_m.clone();
+                    new_s_m.insert(self.expected_markers[depth]);
+                    new_s_p.remove(self.expected_markers[depth]);
+                    self.stack.push((new_s_p, new_s_m));
+                } else {
+                    // Overwise, the other branch has to be feasible.
+                    s_p.remove(self.expected_markers[depth]);
+                    s_m.insert(self.expected_markers[depth]);
+                    gamma2 = None;
+                }
+            }
+
+            let gamma2 = match gamma2 {
+                None => self.indexed_dag.follow_sp_sm(&self.gamma, &s_p, &s_m),
+                Some(val) => val,
+            };
+
+            return Some((s_p, gamma2));
+        }
+
+        None
     }
 }
