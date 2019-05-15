@@ -1,4 +1,4 @@
-use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
+// use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryInto;
 use std::iter;
@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use super::super::automaton::Automaton;
 use super::super::mapping::{Mapping, Marker};
+use super::super::progress::Progress;
 use super::super::settings;
 use super::jump::Jump;
 
@@ -34,52 +35,16 @@ impl<'a> IndexedDag {
         );
 
         // NOTE: this copy could be avoided by changing the cached getter's behaviour
-        let text_length = text.chars().count();
         let closure_for_assignations = automaton.get_closure_for_assignations().clone();
 
-        let mut last_display_level = 0;
-        let mut last_display_instant = Instant::now();
-        let start_instant = Instant::now();
-        let progress = ProgressBar::new(
-            text_length
-                .try_into()
-                .expect("The text length doesn't fit in a 64 bits unsigned integer."),
-        );
+        let chars: Vec<_> = text.chars().collect();
+        let progress = Progress::from_iter(chars.into_iter());
 
-        for (curr_level, curr_char) in text.chars().enumerate() {
+        for curr_char in progress {
             // Add a layer
             let adj_for_char = automaton.get_adj_for_char(curr_char);
             jump.init_next_level(adj_for_char, &closure_for_assignations);
-
-            // Update the progress bar periodicaly
-            if Instant::now() - last_display_instant
-                > Duration::from_millis(settings::PROGRESS_REFRESH_DELAY.into())
-            {
-                // Compute average speed so far
-                let speed: u128 = curr_level.try_into().unwrap();
-                let speed = 1_000 * speed / start_instant.elapsed().as_millis();
-
-                // Update informations
-                let bar_shape = format!(
-                    "{{spinner}} {{percent}}% [{{bar:30}}] {{elapsed_precise}} {}/s {{wide_msg}} \
-                     {} levels",
-                    HumanBytes(speed.try_into().unwrap()),
-                    jump.get_nb_levels()
-                );
-                progress.set_style(
-                    ProgressStyle::default_bar()
-                        .template(&bar_shape)
-                        .progress_chars("=> "),
-                );
-
-                // Reset counters
-                progress.inc((curr_level - last_display_level).try_into().unwrap());
-                last_display_level = curr_level;
-                last_display_instant = Instant::now();
-            }
         }
-
-        progress.finish_and_clear();
 
         IndexedDag {
             automaton,

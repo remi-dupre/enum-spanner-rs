@@ -2,12 +2,12 @@ mod automaton;
 mod benchmark;
 mod mapping;
 mod matrix;
+mod progress;
 mod regex;
 mod settings;
 mod tools;
 
 extern crate clap;
-extern crate indicatif;
 extern crate regex_syntax;
 
 use std::fs::File;
@@ -119,7 +119,7 @@ fn main() {
                 if show_offset {
                     print!(" {}:{},{}", name, range.start, range.end);
                 } else {
-                    print!(" {}:\"{}\"", name, &text[range]);
+                    print!(" {}:{:?}", name, &text[range]);
                 }
             }
 
