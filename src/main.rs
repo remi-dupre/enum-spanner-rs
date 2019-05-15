@@ -8,7 +8,6 @@ mod tools;
 
 extern crate clap;
 extern crate indicatif;
-extern crate rand;
 extern crate regex_syntax;
 
 use std::fs::File;

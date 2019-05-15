@@ -13,56 +13,83 @@ use super::super::mapping::{Marker, Variable};
 /// A simple Hir, with branchements of arity at most 2 and at least redondancy as possible.
 #[derive(Clone, Debug)]
 pub enum Hir {
+    /// Empty langage
     Empty,
+    /// Langage of words of length 1
     Label(Rc<Label>), // embeded into an Rc to avoid duplicating heavy complex literals
+    /// Concatenation of two langages
     Concat(Box<Hir>, Box<Hir>),
+    /// Union of two langages
     Alternation(Box<Hir>, Box<Hir>),
+    /// Either epsilon, either a word of the langage
     Option(Box<Hir>),
+    /// Langage of repetitions of **at least** one word of the input langage
     Closure(Box<Hir>),
 }
 
 impl Hir {
     pub fn from_regex(regex: &str) -> Hir {
         let lib_hir = regex_syntax::Parser::new().parse(regex).unwrap();
-        Hir::from_lib_hir(lib_hir)
+        let (_, hir) = Hir::from_lib_hir(lib_hir, 0);
+        hir
     }
 
-    fn from_lib_hir(hir: regex_syntax::hir::Hir) -> Hir {
+    /// Construct an Hir from regex_syntax's Hir format.
+    ///
+    /// It also takes as an input the counter of already created variables and
+    /// return the count of variables that have been created in the generated
+    /// Hir.
+    fn from_lib_hir(hir: regex_syntax::hir::Hir, nb_ext_vars: u64) -> (u64, Hir) {
         match hir.into_kind() {
-            LibHir::Empty => Hir::epsilon(),
-            LibHir::Literal(lit) => Hir::label(Label::Atom(Atom::Literal(lit))),
-            LibHir::Class(class) => Hir::label(Label::Atom(Atom::Class(class))),
+            LibHir::Empty => (0, Hir::epsilon()),
+
+            LibHir::Literal(lit) => (0, Hir::label(Label::Atom(Atom::Literal(lit)))),
+
+            LibHir::Class(class) => (0, Hir::label(Label::Atom(Atom::Class(class)))),
+
             LibHir::Repetition(rep) => {
-                let hir = Hir::from_lib_hir(*rep.hir);
-                match rep.kind {
+                let (nb_in_vars, hir) = Hir::from_lib_hir(*rep.hir, nb_ext_vars);
+                let new_hir = match rep.kind {
                     LibRepKind::ZeroOrOne => Hir::option(hir),
                     LibRepKind::ZeroOrMore => Hir::option(Hir::closure(hir)),
                     LibRepKind::OneOrMore => Hir::closure(hir),
                     LibRepKind::Range(range) => Hir::repetition(hir, range),
-                }
+                };
+                (nb_in_vars, new_hir)
             }
+
             LibHir::Group(group) => {
-                let subtree = Hir::from_lib_hir(*group.hir);
-                match group.kind {
+                let (mut nb_in_vars, subtree) = Hir::from_lib_hir(*group.hir, nb_ext_vars);
+                let new_hir = match group.kind {
                     LibGroup::NonCapturing | LibGroup::CaptureIndex(_) => subtree,
                     LibGroup::CaptureName { name, index: _ } => {
-                        let var = Variable::new(name);
+                        let var = Variable::new(name, nb_ext_vars + nb_in_vars);
                         let marker_open = Label::Assignation(Marker::Open(var.clone()));
                         let marker_close = Label::Assignation(Marker::Close(var));
+                        nb_in_vars += 1;
 
                         Hir::concat(
                             Hir::Concat(Box::new(Hir::label(marker_open)), Box::new(subtree)),
                             Hir::label(marker_close),
                         )
                     }
-                }
+                };
+
+                (nb_in_vars, new_hir)
             }
-            LibHir::Concat(sub) => sub.into_iter().fold(Hir::epsilon(), |acc, branch| {
-                Hir::concat(acc, Hir::from_lib_hir(branch))
+
+            LibHir::Concat(sub) => sub.into_iter().fold((0, Hir::epsilon()), |acc, branch| {
+                let (acc_vars, acc_hir) = acc;
+                let (add_vars, add_hir) = Hir::from_lib_hir(branch, nb_ext_vars + acc_vars);
+                (acc_vars + add_vars, Hir::concat(acc_hir, add_hir))
             }),
-            LibHir::Alternation(sub) => sub.into_iter().fold(Hir::Empty, |acc, branch| {
-                Hir::alternation(acc, Hir::from_lib_hir(branch))
+
+            LibHir::Alternation(sub) => sub.into_iter().fold((0, Hir::Empty), |acc, branch| {
+                let (acc_vars, acc_hir) = acc;
+                let (add_vars, add_hir) = Hir::from_lib_hir(branch, nb_ext_vars + acc_vars);
+                (acc_vars + add_vars, Hir::alternation(acc_hir, add_hir))
             }),
+
             other => panic!("Not implemented: {:?}", other),
         }
     }
@@ -102,6 +129,9 @@ impl Hir {
 
         for i in 0..min {
             if i == min - 1 && max == None {
+                // If the repetition has no upper bound, the last repetition
+                // of the input langage is replaced with a closure. It avoids
+                // a few states to do it here.
                 result = Hir::concat(result, Hir::closure(hir.clone()));
             } else {
                 result = Hir::concat(result, hir.clone());

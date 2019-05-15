@@ -12,8 +12,6 @@ use std::ops::Range;
 
 pub use indexed_dag::IndexedDag;
 
-extern crate rand;
-
 //  __  __                   _
 // |  \/  | __ _ _ __  _ __ (_)_ __   __ _
 // | |\/| |/ _` | '_ \| '_ \| | '_ \ / _` |
@@ -119,9 +117,13 @@ pub struct Variable {
     name: String,
 }
 
-impl fmt::Display for Variable {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.name)
+impl Variable {
+    pub fn new(name: String, id: u64) -> Variable {
+        Variable { id, name }
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.name
     }
 }
 
@@ -138,16 +140,9 @@ impl PartialEq for Variable {
     }
 }
 
-impl Variable {
-    pub fn new(name: String) -> Variable {
-        Variable {
-            id: rand::random(),
-            name: name,
-        }
-    }
-
-    pub fn get_name(&self) -> &str {
-        &self.name
+impl fmt::Display for Variable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)
     }
 }
 
