@@ -106,7 +106,7 @@ fn main() {
         .render("automaton.dot")
         .expect("Could not create the dotfile.");
 
-    let compiled_matches = regex::compile_matches(&regex, text.as_str());
+    let compiled_matches = regex::compile_matches(regex, text.as_str());
 
     if count {
         let count = compiled_matches.iter().count();

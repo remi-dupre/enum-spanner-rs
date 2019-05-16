@@ -1,13 +1,10 @@
 // use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::convert::TryInto;
 use std::iter;
-use std::time::{Duration, Instant};
 
 use super::super::automaton::Automaton;
 use super::super::mapping::{Mapping, Marker};
 use super::super::progress::Progress;
-use super::super::settings;
 use super::jump::Jump;
 
 //  ___           _                   _ ____
@@ -21,14 +18,16 @@ use super::jump::Jump;
 ///
 /// The structure allows to enumerate efficiently all the distinct matches of the input automata
 /// over the input text.
-pub struct IndexedDag {
+///
+/// 't: lifetime of the text and of output mappings
+pub struct IndexedDag<'t> {
     automaton: Automaton,
-    text: String,
+    text: &'t str,
     jump: Jump,
 }
 
-impl<'a> IndexedDag {
-    pub fn compile(mut automaton: Automaton, text: String) -> IndexedDag {
+impl<'a, 't> IndexedDag<'t> {
+    pub fn compile(mut automaton: Automaton, text: &'t str) -> IndexedDag<'t> {
         let mut jump = Jump::new(
             iter::once(automaton.get_initial()),
             automaton.get_closure_for_assignations(),
@@ -53,7 +52,7 @@ impl<'a> IndexedDag {
     }
 
     /// TODO: implement this as a real iterable.
-    pub fn iter(&'a self) -> impl Iterator<Item = Mapping<'a>> {
+    pub fn iter(&'t self) -> impl Iterator<Item = Mapping<'t>> {
         // Only start with accessible final states
         let start = self
             .jump
@@ -200,9 +199,9 @@ impl<'a> IndexedDag {
 
 /// Explore all feasible variable associations in a level from a set of states
 /// and resulting possible states reached for theses associations.
-struct NextLevelIterator<'a> {
+struct NextLevelIterator<'a, 't> {
     /// TODO: only keep the automata (and reimplement follow_sp_sm here?)
-    indexed_dag: &'a IndexedDag,
+    indexed_dag: &'a IndexedDag<'t>,
 
     /// Set of markers that can be reached in this level.
     expected_markers: Vec<&'a Marker>,
@@ -214,13 +213,13 @@ struct NextLevelIterator<'a> {
     stack: Vec<(HashSet<&'a Marker>, HashSet<&'a Marker>)>,
 }
 
-impl<'a> NextLevelIterator<'a> {
+impl<'a, 't> NextLevelIterator<'a, 't> {
     /// Start the exporation from the input set of states `gamma`.
     fn explore(
-        indexed_dag: &'a IndexedDag,
+        indexed_dag: &'a IndexedDag<'t>,
         expected_markers: HashSet<&'a Marker>,
         gamma: Vec<usize>,
-    ) -> NextLevelIterator<'a> {
+    ) -> NextLevelIterator<'a, 't> {
         NextLevelIterator {
             indexed_dag,
             expected_markers: expected_markers.into_iter().collect(),
@@ -230,7 +229,7 @@ impl<'a> NextLevelIterator<'a> {
     }
 }
 
-impl<'a> Iterator for NextLevelIterator<'a> {
+impl<'a, 't> Iterator for NextLevelIterator<'a, 't> {
     type Item = (HashSet<&'a Marker>, Vec<usize>);
 
     fn next(&mut self) -> Option<(HashSet<&'a Marker>, Vec<usize>)> {

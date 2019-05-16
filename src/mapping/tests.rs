@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use super::super::automaton::Automaton;
-use super::super::regex::{compile, iter_matches};
+use super::super::regex;
 use super::{naive, Mapping};
 
 /// Build a HashSet collecting results of naive algorithm.
@@ -28,7 +28,9 @@ where
     let mut ret = HashSet::new();
 
     for text in texts {
-        for mapping in iter_matches(&regex, text) {
+        let matches = regex::compile_matches(&regex, text);
+
+        for mapping in matches.iter() {
             ret.insert(mapping);
         }
     }
@@ -38,7 +40,7 @@ where
 
 #[test]
 fn block_a() {
-    let regex = compile(r"^(.*[^a])?(?P<block_a>a+)([^a].*)?$");
+    let regex = regex::compile(r"^(.*[^a])?(?P<block_a>a+)([^a].*)?$");
     let texts = ["a", "aaaaaaaaaaaaa", "bbbabb", "aaaabbaaababbbb"];
 
     assert_eq!(
@@ -49,7 +51,7 @@ fn block_a() {
 
 #[test]
 fn sep_email() {
-    let regex = compile(r"\w+@\w+");
+    let regex = regex::compile(r"\w+@\w+");
     let texts = ["a bba a@b b@a aaa@bab abbababaa@@@babbabb"];
 
     assert_eq!(
@@ -60,7 +62,7 @@ fn sep_email() {
 
 #[test]
 fn substrings() {
-    let regex = compile(r".*");
+    let regex = regex::compile(r".*");
     let texts = ["abcdefghijklmnopqrstuvwxyz"];
 
     assert_eq!(
@@ -71,7 +73,8 @@ fn substrings() {
 
 #[test]
 fn ordered_blocks() {
-    let regex = compile(r"^(.*[^a])?(?P<block_a>a+)([^a].*[^b]|[^ab])?(?P<block_b>b+)([^b].*)?$");
+    let regex =
+        regex::compile(r"^(.*[^a])?(?P<block_a>a+)([^a].*[^b]|[^ab])?(?P<block_b>b+)([^b].*)?$");
     let texts = ["ab", "aaaabbbb", "bbbaaababaaaaaabbbbabbbababbababbabb"];
 
     assert_eq!(
@@ -82,7 +85,7 @@ fn ordered_blocks() {
 
 #[test]
 fn mixed_emails() {
-    let regex = compile(r"(?P<login>\w+(\.\w+)*)@(?P<server>\w+\.\w+)");
+    let regex = regex::compile(r"(?P<login>\w+(\.\w+)*)@(?P<server>\w+\.\w+)");
     let texts = ["aaaa@aaa.aa", "aa@aa a@a.a@a.a.a@a.a.a.a@a.a.a.a.a"];
 
     assert_eq!(

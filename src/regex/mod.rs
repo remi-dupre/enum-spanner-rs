@@ -12,15 +12,15 @@ pub fn compile(regex: &str) -> Automaton {
 
 pub fn is_match(regex: &str, text: &str) -> bool {
     let automaton = compile(&regex);
-    let matches = compile_matches(&automaton, text);
+    let matches = compile_matches(automaton, text);
 
     // TODO: investigate this weird borrow checker behaviour
     let ret = matches.iter().next().is_some();
     ret
 }
 
-pub fn compile_matches<'a>(automaton: &'a Automaton, text: &'a str) -> mapping::IndexedDag {
-    mapping::IndexedDag::compile(automaton.clone(), text.to_string())
+pub fn compile_matches(automaton: Automaton, text: &str) -> mapping::IndexedDag {
+    mapping::IndexedDag::compile(automaton, text)
 }
 
 /// Reformat the regex to get a regex matching the whole regex in a group called *match*.
