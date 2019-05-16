@@ -10,7 +10,8 @@ pub fn compile(regex: &str) -> Automaton {
     glushkov::LocalLang::from_hir(hir, 0).into_automaton()
 }
 
-pub fn is_match(regex: &str, text: &str) -> bool {
+#[cfg(test)]
+pub fn is_match(regex: &str, text: String) -> bool {
     let automaton = compile(&regex);
     let matches = compile_matches(automaton, text);
 
@@ -19,7 +20,7 @@ pub fn is_match(regex: &str, text: &str) -> bool {
     ret
 }
 
-pub fn compile_matches(automaton: Automaton, text: &str) -> mapping::IndexedDag {
+pub fn compile_matches(automaton: Automaton, text: String) -> mapping::IndexedDag {
     mapping::IndexedDag::compile(automaton, text)
 }
 

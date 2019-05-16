@@ -4,7 +4,6 @@ mod mapping;
 mod matrix;
 mod progress;
 mod regex;
-mod settings;
 mod tools;
 
 extern crate clap;
@@ -106,7 +105,7 @@ fn main() {
         .render("automaton.dot")
         .expect("Could not create the dotfile.");
 
-    let compiled_matches = regex::compile_matches(regex, text.as_str());
+    let compiled_matches = regex::compile_matches(regex, text);
 
     if count {
         let count = compiled_matches.iter().count();
@@ -115,11 +114,13 @@ fn main() {
         for (count, mapping) in compiled_matches.iter().enumerate() {
             print!("{} -", count);
 
-            for (name, range) in mapping.iter_groups() {
-                if show_offset {
+            if show_offset {
+                for (name, range) in mapping.iter_groups() {
                     print!(" {}:{},{}", name, range.start, range.end);
-                } else {
-                    print!(" {}:{:?}", name, &text[range]);
+                }
+            } else {
+                for (name, text) in mapping.iter_groups_text() {
+                    print!(" {}:{:?}", name, text);
                 }
             }
 

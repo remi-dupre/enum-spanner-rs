@@ -1,4 +1,6 @@
 pub mod indexed_dag;
+
+#[cfg(test)]
 pub mod naive;
 
 mod jump;
@@ -30,7 +32,13 @@ impl<'a> Mapping<'a> {
     pub fn iter_groups(&self) -> impl Iterator<Item = (&str, Range<usize>)> {
         self.maps
             .iter()
-            .map(|(key, value)| (key.get_name(), value.clone()))
+            .map(|(key, range)| (key.get_name(), range.clone()))
+    }
+
+    pub fn iter_groups_text(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.maps
+            .iter()
+            .map(move |(key, range)| (key.get_name(), &self.text[range.clone()]))
     }
 
     pub fn from_markers<T>(text: &'a str, marker_assigns: T) -> Mapping<'a>
