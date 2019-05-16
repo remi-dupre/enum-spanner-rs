@@ -106,13 +106,13 @@ fn main() {
         .render("automaton.dot")
         .expect("Could not create the dotfile.");
 
-    let compiled_matches = regex::iter_matches(&regex, text.as_str());
+    let compiled_matches = regex::compile_matches(&regex, text.as_str());
 
     if count {
-        let count = compiled_matches.count();
+        let count = compiled_matches.iter().count();
         println!("{}", count)
     } else {
-        for (count, mapping) in compiled_matches.enumerate() {
+        for (count, mapping) in compiled_matches.iter().enumerate() {
             print!("{} -", count);
 
             for (name, range) in mapping.iter_groups() {

@@ -2,9 +2,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::time::Instant;
 
-use super::automaton::Automaton;
-use super::mapping::IndexedDag;
-use super::regex::compile;
+use super::regex;
 
 struct BenchmarkCase {
     name: &'static str,
@@ -68,22 +66,8 @@ where
             input.as_bytes().len()
         )?;
 
-        // Compile the regex.
-        write!(stream, " - Compiling regex      ... ")?;
-        stream.flush()?;
-        let timer = Instant::now();
-
-        let regex = compile(benchmark.regex);
-
-        write!(
-            stream,
-            "{:.2?}\t({} states)\n",
-            timer.elapsed(),
-            regex.get_nb_states()
-        )?;
-
         // Run the test itself.
-        run_test(stream, regex, input)?;
+        run_test(stream, benchmark.regex, input)?;
 
         write!(stream, "\n")?;
     }
@@ -92,16 +76,30 @@ where
 }
 
 /// Compute time spent on running the regex over the given input file.
-fn run_test<T>(stream: &mut T, regex: Automaton, input: String) -> Result<(), std::io::Error>
+fn run_test<T>(stream: &mut T, regex: &str, input: String) -> Result<(), std::io::Error>
 where
     T: std::io::Write,
 {
+    // Compile the regex.
+    write!(stream, " - Compiling regex      ... ")?;
+    stream.flush()?;
+    let timer = Instant::now();
+
+    let regex = regex::compile(regex);
+
+    write!(
+        stream,
+        "{:.2?}\t({} states)\n",
+        timer.elapsed(),
+        regex.get_nb_states()
+    )?;
+
     // Prepare the enumeration.
     write!(stream, " - Compiling matches    ... ")?;
     stream.flush()?;
     let timer = Instant::now();
 
-    let compiled_matches = IndexedDag::compile(regex, input);
+    let compiled_matches = regex::compile_matches(&regex, &input);
 
     write!(
         stream,

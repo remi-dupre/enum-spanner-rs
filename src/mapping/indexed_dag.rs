@@ -41,7 +41,6 @@ impl<'a> IndexedDag {
         let progress = Progress::from_iter(chars.into_iter());
 
         for curr_char in progress {
-            // Add a layer
             let adj_for_char = automaton.get_adj_for_char(curr_char);
             jump.init_next_level(adj_for_char, &closure_for_assignations);
         }
