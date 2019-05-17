@@ -14,7 +14,11 @@ It is the reimplementation of
 Requirements
 ------------
 
-It has been tested and developed using `rustc 1.34` and `cargo 1.34`.
+It has been tested and developed using `rustc 1.34` and `cargo 1.34`. It will
+not work with older Rust versions shipped by some Linux distributions, e.g.,
+with version 1.32. You can check your rust version with `rustc --version`, and
+install manually a more recent Rust version from the [Rust
+website](https://www.rust-lang.org/learn/get-started).
 
 Specific library requirements can be found in *Cargo.toml* and *Cargo.lock*.
 
