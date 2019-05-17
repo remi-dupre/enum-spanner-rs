@@ -191,45 +191,46 @@ impl<'a> Iterator for IndexedDagIterator<'a> {
     type Item = Mapping<'a>;
 
     fn next(&mut self) -> Option<Mapping<'a>> {
-        // First, consume curr_next_level.
-        // NOTE: Using a for loop instead would move the iterator.
-        while let Some((s_p, new_gamma)) = self.curr_next_level.next() {
-            if new_gamma.is_empty() {
-                continue;
-            }
+        loop {
+            // First, consume curr_next_level.
+            // NOTE: Using a for loop instead would move the iterator.
+            while let Some((s_p, new_gamma)) = self.curr_next_level.next() {
+                if new_gamma.is_empty() {
+                    continue;
+                }
 
-            let mut new_mapping = self.curr_mapping.clone();
-            for marker in s_p {
-                new_mapping.insert((marker, self.curr_level));
-            }
+                let mut new_mapping = self.curr_mapping.clone();
+                for marker in s_p {
+                    new_mapping.insert((marker, self.curr_level));
+                }
 
-            if self.curr_level == 0 && new_gamma.contains(&self.indexed_dag.automaton.get_initial())
-            {
-                return Some(Mapping::from_markers(
-                    &self.indexed_dag.text,
-                    new_mapping.into_iter(), // TODO: compare performance with .iter().map(|x| *x)
-                ));
-            } else if let Some((jump_level, jump_gamma)) = self
-                .indexed_dag
-                .jump
-                .jump(self.curr_level, new_gamma.into_iter())
-            {
-                if !jump_gamma.is_empty() {
-                    self.stack.push((jump_level, jump_gamma, new_mapping));
+                if self.curr_level == 0
+                    && new_gamma.contains(&self.indexed_dag.automaton.get_initial())
+                {
+                    return Some(Mapping::from_markers(
+                        &self.indexed_dag.text,
+                        new_mapping.into_iter(), // TODO: compare performance with .iter().map(|x| *x)
+                    ));
+                } else if let Some((jump_level, jump_gamma)) = self
+                    .indexed_dag
+                    .jump
+                    .jump(self.curr_level, new_gamma.into_iter())
+                {
+                    if !jump_gamma.is_empty() {
+                        self.stack.push((jump_level, jump_gamma, new_mapping));
+                    }
                 }
             }
-        }
 
-        // Overwise, read next element of the stack and init the new
-        // `curr_next_level` before restarting the process.
-        // TODO: find an elegant of not using a unbounded recursive call.
-        match self.stack.pop() {
-            None => None,
-            Some((level, gamma, mapping)) => {
-                self.curr_level = level;
-                self.curr_mapping = mapping;
-                self.curr_next_level = self.indexed_dag.next_level(gamma);
-                self.next()
+            // Overwise, read next element of the stack and init the new
+            // `curr_next_level` before restarting the process.
+            match self.stack.pop() {
+                None => return None,
+                Some((level, gamma, mapping)) => {
+                    self.curr_level = level;
+                    self.curr_mapping = mapping;
+                    self.curr_next_level = self.indexed_dag.next_level(gamma)
+                }
             }
         }
     }
