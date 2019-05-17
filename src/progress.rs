@@ -58,7 +58,7 @@ where
             BAR_SIZE + 1,
             (proportion * (BAR_SIZE + 1) as f64).round() as usize,
         );
-        let mut void_length = BAR_SIZE - body_length + 1;
+        let mut void_length = (BAR_SIZE + 1) - body_length;
         let mut has_head = false;
 
         if void_length > 0 {
