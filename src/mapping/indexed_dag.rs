@@ -18,14 +18,14 @@ use super::jump::Jump;
 ///
 /// The structure allows to enumerate efficiently all the distinct matches of the input automata
 /// over the input text.
-pub struct IndexedDag {
+pub struct IndexedDag<'t> {
     automaton: Automaton,
-    text: String,
+    text: &'t str,
     jump: Jump,
 }
 
-impl IndexedDag {
-    pub fn compile(mut automaton: Automaton, text: String) -> IndexedDag {
+impl<'t> IndexedDag<'t> {
+    pub fn compile(mut automaton: Automaton, text: &str) -> IndexedDag {
         let mut jump = Jump::new(
             iter::once(automaton.get_initial()),
             automaton.get_closure_for_assignations(),
@@ -49,7 +49,7 @@ impl IndexedDag {
         }
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Mapping<'a>> {
+    pub fn iter<'d>(&'d self) -> impl Iterator<Item = Mapping<'t>> + 'd {
         IndexedDagIterator::init(self)
     }
 
@@ -58,7 +58,7 @@ impl IndexedDag {
     }
 
     /// TODO: implement this as an iterable.
-    fn next_level<'a>(&'a self, gamma: Vec<usize>) -> NextLevelIterator<'a> {
+    fn next_level<'d>(&'d self, gamma: Vec<usize>) -> NextLevelIterator<'d, 't> {
         let adj = self.automaton.get_rev_assignations();
 
         // Get list of variables that are part of the level
@@ -156,17 +156,17 @@ impl IndexedDag {
 // |___|_| |_|\__,_|\___/_/\_\___|\__,_|____/ \__,_|\__, |___|\__\___|_|  \__,_|\__\___/|_|
 //                                                  |___/
 
-struct IndexedDagIterator<'a> {
-    indexed_dag: &'a IndexedDag,
-    stack: Vec<(usize, Vec<usize>, HashSet<(&'a Marker, usize)>)>,
+struct IndexedDagIterator<'d, 't> {
+    indexed_dag: &'d IndexedDag<'t>,
+    stack: Vec<(usize, Vec<usize>, HashSet<(&'d Marker, usize)>)>,
 
     curr_level: usize,
-    curr_mapping: HashSet<(&'a Marker, usize)>, // TODO: HashSet required?
-    curr_next_level: NextLevelIterator<'a>,
+    curr_mapping: HashSet<(&'d Marker, usize)>, // TODO: HashSet required?
+    curr_next_level: NextLevelIterator<'d, 't>,
 }
 
-impl<'a> IndexedDagIterator<'a> {
-    fn init(indexed_dag: &IndexedDag) -> IndexedDagIterator {
+impl<'d, 't> IndexedDagIterator<'d, 't> {
+    fn init(indexed_dag: &'d IndexedDag<'t>) -> IndexedDagIterator<'d, 't> {
         let start = indexed_dag
             .jump
             .finals()
@@ -187,10 +187,10 @@ impl<'a> IndexedDagIterator<'a> {
     }
 }
 
-impl<'a> Iterator for IndexedDagIterator<'a> {
-    type Item = Mapping<'a>;
+impl<'d, 't> Iterator for IndexedDagIterator<'d, 't> {
+    type Item = Mapping<'t>;
 
-    fn next(&mut self) -> Option<Mapping<'a>> {
+    fn next(&mut self) -> Option<Mapping<'t>> {
         loop {
             // First, consume curr_next_level.
             // NOTE: Using a for loop instead would move the iterator.
@@ -208,8 +208,11 @@ impl<'a> Iterator for IndexedDagIterator<'a> {
                     && new_gamma.contains(&self.indexed_dag.automaton.get_initial())
                 {
                     return Some(Mapping::from_markers(
-                        &self.indexed_dag.text,
-                        new_mapping.into_iter(), // TODO: compare performance with .iter().map(|x| *x)
+                        self.indexed_dag.text,
+                        // TODO: compare performance with .iter()
+                        new_mapping
+                            .into_iter()
+                            .map(|(marker, pos)| (marker.clone(), pos)),
                     ));
                 } else if let Some((jump_level, jump_gamma)) = self
                     .indexed_dag
@@ -245,23 +248,23 @@ impl<'a> Iterator for IndexedDagIterator<'a> {
 
 /// Explore all feasible variable associations in a level from a set of states
 /// and resulting possible states reached for theses associations.
-struct NextLevelIterator<'a> {
+struct NextLevelIterator<'d, 't> {
     /// TODO: only keep the automata (and reimplement follow_sp_sm here?)
-    indexed_dag: &'a IndexedDag,
+    indexed_dag: &'d IndexedDag<'t>,
 
     /// Set of markers that can be reached in this level.
-    expected_markers: Vec<&'a Marker>,
+    expected_markers: Vec<&'d Marker>,
 
     /// Set of states we start the run from.
     gamma: Vec<usize>,
 
-    /// Lol
-    stack: Vec<(HashSet<&'a Marker>, HashSet<&'a Marker>)>,
+    /// TODO
+    stack: Vec<(HashSet<&'d Marker>, HashSet<&'d Marker>)>,
 }
 
-impl<'a, 't> NextLevelIterator<'a> {
+impl<'d, 't> NextLevelIterator<'d, 't> {
     /// An empty iterator.
-    fn empty(indexed_dag: &'a IndexedDag) -> NextLevelIterator {
+    fn empty(indexed_dag: &'d IndexedDag<'t>) -> NextLevelIterator<'d, 't> {
         NextLevelIterator {
             stack: Vec::new(), // Initialized with an empty stack to stop iteration instantly.
             indexed_dag,
@@ -272,10 +275,10 @@ impl<'a, 't> NextLevelIterator<'a> {
 
     /// Start the exporation from the input set of states `gamma`.
     fn explore(
-        indexed_dag: &'a IndexedDag,
-        expected_markers: HashSet<&'a Marker>,
+        indexed_dag: &'d IndexedDag<'t>,
+        expected_markers: HashSet<&'d Marker>,
         gamma: Vec<usize>,
-    ) -> NextLevelIterator<'a> {
+    ) -> NextLevelIterator<'d, 't> {
         NextLevelIterator {
             indexed_dag,
             expected_markers: expected_markers.into_iter().collect(),
@@ -285,10 +288,10 @@ impl<'a, 't> NextLevelIterator<'a> {
     }
 }
 
-impl<'a, 't> Iterator for NextLevelIterator<'a> {
-    type Item = (HashSet<&'a Marker>, Vec<usize>);
+impl<'d, 't> Iterator for NextLevelIterator<'d, 't> {
+    type Item = (HashSet<&'d Marker>, Vec<usize>);
 
-    fn next(&mut self) -> Option<(HashSet<&'a Marker>, Vec<usize>)> {
+    fn next(&mut self) -> Option<(HashSet<&'d Marker>, Vec<usize>)> {
         while let Some((mut s_p, mut s_m)) = self.stack.pop() {
             let mut gamma2 = Some(self.indexed_dag.follow_sp_sm(&self.gamma, &s_p, &s_m));
 

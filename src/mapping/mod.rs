@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Range;
+use std::rc::Rc;
 
 pub use indexed_dag::IndexedDag;
 
@@ -23,12 +24,12 @@ pub use indexed_dag::IndexedDag;
 
 /// Map a set of variables to spans [i, i'> over a text.
 #[derive(Debug, Eq, PartialEq)]
-pub struct Mapping<'a> {
-    text: &'a str,
-    maps: HashMap<&'a Variable, Range<usize>>,
+pub struct Mapping<'t> {
+    text: &'t str,
+    maps: HashMap<Variable, Range<usize>>,
 }
 
-impl<'a> Mapping<'a> {
+impl<'t> Mapping<'t> {
     pub fn iter_groups(&self) -> impl Iterator<Item = (&str, Range<usize>)> {
         self.maps
             .iter()
@@ -41,11 +42,11 @@ impl<'a> Mapping<'a> {
             .map(move |(key, range)| (key.get_name(), &self.text[range.clone()]))
     }
 
-    pub fn from_markers<T>(text: &'a str, marker_assigns: T) -> Mapping<'a>
+    pub fn from_markers<T>(text: &'t str, marker_assigns: T) -> Mapping<'t>
     where
-        T: Iterator<Item = (&'a Marker, usize)>,
+        T: Iterator<Item = (Marker, usize)>,
     {
-        let mut dict: HashMap<&'a Variable, (Option<usize>, Option<usize>)> = HashMap::new();
+        let mut dict: HashMap<Variable, (Option<usize>, Option<usize>)> = HashMap::new();
 
         for (marker, pos) in marker_assigns {
             let span = match dict.get(marker.variable()) {
@@ -70,7 +71,7 @@ impl<'a> Mapping<'a> {
                 },
             };
 
-            dict.insert(marker.variable(), span);
+            dict.insert(marker.variable().clone(), span);
         }
 
         let maps = dict
@@ -85,13 +86,13 @@ impl<'a> Mapping<'a> {
     }
 }
 
-impl<'a> std::hash::Hash for Mapping<'a> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+impl<'t> std::hash::Hash for Mapping<'t> {
+    fn hash<'m, H: Hasher>(&'m self, state: &mut H) {
         self.text.hash(state);
 
         let mut assignments: Vec<_> = self.maps.iter().collect();
         assignments.sort_by(|&a, &b| {
-            let key = |x: (&&'a Variable, &Range<usize>)| (*x.0, x.1.start, x.1.end);
+            let key = |x: (&'m Variable, &Range<usize>)| (x.0, x.1.start, x.1.end);
             key(a).cmp(&key(b))
         });
 
@@ -101,7 +102,7 @@ impl<'a> std::hash::Hash for Mapping<'a> {
     }
 }
 
-impl<'a> fmt::Display for Mapping<'a> {
+impl<'t> fmt::Display for Mapping<'t> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (var, range) in self.maps.iter() {
             // write!(f, "{}: {} ", var, &self.text[*start..*end]).unwrap();
@@ -162,8 +163,8 @@ impl fmt::Display for Variable {
 //
 #[derive(Clone, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub enum Marker {
-    Open(Variable),
-    Close(Variable),
+    Open(Rc<Variable>),
+    Close(Rc<Variable>),
 }
 
 impl Marker {

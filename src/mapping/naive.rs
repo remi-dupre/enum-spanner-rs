@@ -6,19 +6,19 @@ use super::{Mapping, Marker};
 /// Enumerate all the matches of a variable automata over a text.
 ///
 /// ** For this naive implementation, there is no garantee that produced matches are distincts. **
-pub struct NaiveEnum<'a> {
+pub struct NaiveEnum<'a, 't> {
     automaton: &'a Automaton,
-    text: &'a str,
+    text: &'t str,
 
     /// Holds current positions of the runs as a stack of:
     ///  - current state on the automata
     ///  - current index on the word
     ///  - assignations that have been done so far
-    curr_state: Vec<(usize, CharIndices<'a>, Vec<(&'a Marker, usize)>)>,
+    curr_state: Vec<(usize, CharIndices<'t>, Vec<(&'a Marker, usize)>)>,
 }
 
-impl<'a> NaiveEnum<'a> {
-    pub fn new(automaton: &'a Automaton, text: &'a str) -> NaiveEnum<'a> {
+impl<'a, 't> NaiveEnum<'a, 't> {
+    pub fn new(automaton: &'a Automaton, text: &'t str) -> NaiveEnum<'a, 't> {
         NaiveEnum {
             automaton,
             text,
@@ -27,10 +27,10 @@ impl<'a> NaiveEnum<'a> {
     }
 }
 
-impl<'a> Iterator for NaiveEnum<'a> {
-    type Item = Mapping<'a>;
+impl<'a, 't> Iterator for NaiveEnum<'a, 't> {
+    type Item = Mapping<'t>;
 
-    fn next(&mut self) -> Option<Mapping<'a>> {
+    fn next(&mut self) -> Option<Mapping<'t>> {
         while let Some((state, index, assigns)) = self.curr_state.pop() {
             let curr_char = index.clone().next();
 
@@ -61,7 +61,12 @@ impl<'a> Iterator for NaiveEnum<'a> {
             }
 
             if curr_char == None && self.automaton.finals.contains(&state) {
-                return Some(Mapping::from_markers(self.text, assigns.into_iter()));
+                return Some(Mapping::from_markers(
+                    self.text,
+                    assigns
+                        .into_iter()
+                        .map(|(marker, pos)| (marker.clone(), pos)),
+                ));
             }
         }
 

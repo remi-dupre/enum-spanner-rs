@@ -11,7 +11,7 @@ pub fn compile(regex: &str) -> Automaton {
 }
 
 #[cfg(test)]
-pub fn is_match(regex: &str, text: String) -> bool {
+pub fn is_match(regex: &str, text: &str) -> bool {
     let automaton = compile(&regex);
     let matches = compile_matches(automaton, text);
 
@@ -20,7 +20,7 @@ pub fn is_match(regex: &str, text: String) -> bool {
     ret
 }
 
-pub fn compile_matches(automaton: Automaton, text: String) -> mapping::IndexedDag {
+pub fn compile_matches<'t>(automaton: Automaton, text: &'t str) -> mapping::IndexedDag<'t> {
     mapping::IndexedDag::compile(automaton, text)
 }
 

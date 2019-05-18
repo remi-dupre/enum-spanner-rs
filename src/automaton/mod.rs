@@ -212,6 +212,7 @@ impl Automaton {
 // | |__| (_| | |_) |  __/ |
 // |_____\__,_|_.__/ \___|_|
 //
+
 #[derive(Debug)]
 pub enum Label {
     Atom(atom::Atom),
