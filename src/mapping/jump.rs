@@ -1,6 +1,7 @@
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::iter;
 
 use super::super::matrix::Matrix;
 use super::levelset::LevelSet;
@@ -271,8 +272,6 @@ impl Jump {
         }
 
         // Update Jump counters previous level
-        let mut to_clean = Vec::new();
-
         for &sublevel in &rlevel[&level] {
             let adjacency = &reach[&(sublevel, level)];
 
@@ -284,8 +283,13 @@ impl Jump {
 
                 if nb_pointers != 0 {
                     *count_ingoing_jumps.get_mut(&(sublevel, vertex)).unwrap() += nb_pointers;
-                } else if count_ingoing_jumps.get(&(sublevel, vertex)) == Some(&0) {
-                    to_clean.push((sublevel, vertex_index));
+                    println!(
+                        "incr {} {} of {} ({})",
+                        sublevel,
+                        vertex,
+                        nb_pointers,
+                        count_ingoing_jumps[&(sublevel, vertex)]
+                    );
                 }
             }
         }
@@ -388,6 +392,7 @@ impl Jump {
                             .count_ingoing_jumps
                             .get_mut(&(sublevel, vertex))
                             .unwrap() += nb_pointers;
+                        println!("incr {} {} of {}", sublevel, vertex, nb_pointers);
                     }
                 }
             }
@@ -413,6 +418,8 @@ impl Jump {
             // Update jump counters to sublevels, if a sublevel is removed from rlevel, then
             // we need to remove jump pointers from any vertex of the level, overwise only
             // from removed vertices.
+            // TODO: I think it's covered by next case (removed sublevels have all
+            // subvertices removed)
             for &sublevel in self.rlevel[&level].difference(&new_rlevel) {
                 for &vertex in self.levelset.get_level(sublevel).unwrap() {
                     let adjacency = &self.reach[&(sublevel, level)];
@@ -423,6 +430,10 @@ impl Jump {
                         .sum();
 
                     if nb_removed > 0 {
+                        println!(
+                            "decr {} {} of {} -- removed link to level {}",
+                            sublevel, vertex, nb_removed, level
+                        );
                         *self
                             .count_ingoing_jumps
                             .get_mut(&(sublevel, vertex))
@@ -431,7 +442,7 @@ impl Jump {
                 }
             }
 
-            for sublevel in new_rlevel {
+            for &sublevel in &new_rlevel {
                 for &vertex in self.levelset.get_level(sublevel).unwrap() {
                     let adjacency = &self.reach[&(sublevel, level)];
                     let vertex_index = self.levelset.get_vertex_index(sublevel, vertex).unwrap();
@@ -441,12 +452,42 @@ impl Jump {
                         .sum();
 
                     if nb_removed > 0 {
+                        println!("decr {} {} of {} -- kept", sublevel, vertex, nb_removed);
                         *self
                             .count_ingoing_jumps
                             .get_mut(&(sublevel, vertex))
                             .unwrap() -= nb_removed;
                     }
                 }
+            }
+
+            // Remove deprecated links in reach and rlevel
+            for &sublevel in self.rlevel[&level].difference(&new_rlevel) {
+                self.rev_rlevel.get_mut(&sublevel).unwrap().remove(&level);
+                self.reach.remove(&(sublevel, level));
+            }
+
+            self.rlevel.insert(level, new_rlevel);
+
+            // Update reach
+            for &vertex in &del_vertices {
+                self.count_ingoing_jumps.remove(&(level, vertex));
+            }
+
+            for &uplevel in &self.rev_rlevel[&level] {
+                self.reach.insert(
+                    (level, uplevel),
+                    self.reach[&(level, uplevel)]
+                        .truncate(removed_columns.iter().cloned(), iter::empty()),
+                );
+            }
+
+            for &sublevel in &self.rlevel[&level] {
+                self.reach.insert(
+                    (level, sublevel),
+                    self.reach[&(level, sublevel)]
+                        .truncate(iter::empty(), removed_columns.iter().cloned()),
+                );
             }
         }
 
