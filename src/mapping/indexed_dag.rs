@@ -16,12 +16,12 @@ use super::jump::Jump;
 
 /// DAG built from the product automaton of a variable automaton and a text.
 ///
-/// The structure allows to enumerate efficiently all the distinct matches of the input automata
-/// over the input text.
+/// The structure allows to enumerate efficiently all the distinct matches of
+/// the input automata over the input text.
 pub struct IndexedDag<'t> {
     automaton: Automaton,
-    text: &'t str,
-    jump: Jump,
+    text:      &'t str,
+    jump:      Jump,
 }
 
 impl<'t> IndexedDag<'t> {
@@ -37,9 +37,20 @@ impl<'t> IndexedDag<'t> {
         let chars: Vec<_> = text.chars().collect();
         let progress = Progress::from_iter(chars.into_iter());
 
-        for curr_char in progress {
+        for (curr_level, curr_char) in progress.enumerate() {
             let adj_for_char = automaton.get_adj_for_char(curr_char);
             jump.init_next_level(adj_for_char, &closure_for_assignations);
+
+            // Clean levels at exponential depth
+
+            if curr_level > 0 {
+                // TODO: this is not as "fancy" as a `x & -x`
+                let depth = (2 as usize).pow(curr_level.trailing_zeros());
+
+                for level in ((curr_level - depth + 1)..=curr_level).rev() {
+                    jump.clean_level(level, &closure_for_assignations);
+                }
+            }
         }
 
         IndexedDag {
@@ -62,7 +73,8 @@ impl<'t> IndexedDag<'t> {
         let adj = self.automaton.get_rev_assignations();
 
         // Get list of variables that are part of the level
-        // TODO: It might still be slower to just using the list of all variables in the automaton?
+        // TODO: It might still be slower to just using the list of all variables in the
+        // automaton?
         let mut k = HashSet::new();
         let mut stack = gamma.clone();
         let mut marks = HashSet::new();
@@ -149,19 +161,24 @@ impl<'t> IndexedDag<'t> {
     }
 }
 
-//  ___           _                   _ ____              ___ _                 _
-// |_ _|_ __   __| | _____  _____  __| |  _ \  __ _  __ _|_ _| |_ ___ _ __ __ _| |_ ___  _ __
-//  | || '_ \ / _` |/ _ \ \/ / _ \/ _` | | | |/ _` |/ _` || || __/ _ \ '__/ _` | __/ _ \| '__|
-//  | || | | | (_| |  __/>  <  __/ (_| | |_| | (_| | (_| || || ||  __/ | | (_| | || (_) | |
-// |___|_| |_|\__,_|\___/_/\_\___|\__,_|____/ \__,_|\__, |___|\__\___|_|  \__,_|\__\___/|_|
-//                                                  |___/
+//  ___           _                   _
+// |_ _|_ __   __| | _____  _____  __| |
+//  | || '_ \ / _` |/ _ \ \/ / _ \/ _` |
+//  | || | | | (_| |  __/>  <  __/ (_| |
+// |___|_| |_|\__,_|\___/_/\_\___|\__,_|
+//  ____
+// |  _ \  __ _  __ _
+// | | | |/ _` |/ _` |
+// | |_| | (_| | (_| |
+// |____/ \__,_|\__, |
+//              |___/
 
 struct IndexedDagIterator<'d, 't> {
     indexed_dag: &'d IndexedDag<'t>,
-    stack: Vec<(usize, Vec<usize>, HashSet<(&'d Marker, usize)>)>,
+    stack:       Vec<(usize, Vec<usize>, HashSet<(&'d Marker, usize)>)>,
 
-    curr_level: usize,
-    curr_mapping: HashSet<(&'d Marker, usize)>, // TODO: HashSet required?
+    curr_level:      usize,
+    curr_mapping:    HashSet<(&'d Marker, usize)>, // TODO: HashSet required?
     curr_next_level: NextLevelIterator<'d, 't>,
 }
 
@@ -240,10 +257,11 @@ impl<'d, 't> Iterator for IndexedDagIterator<'d, 't> {
 }
 
 //  _   _           _   _                   _ ___ _                 _
-// | \ | | _____  _| |_| |    _____   _____| |_ _| |_ ___ _ __ __ _| |_ ___  _ __
-// |  \| |/ _ \ \/ / __| |   / _ \ \ / / _ \ || || __/ _ \ '__/ _` | __/ _ \| '__|
-// | |\  |  __/>  <| |_| |__|  __/\ V /  __/ || || ||  __/ | | (_| | || (_) | |
-// |_| \_|\___/_/\_\\__|_____\___| \_/ \___|_|___|\__\___|_|  \__,_|\__\___/|_|
+// | \ | | _____  _| |_| |    _____   _____| |_ _| |_ ___ _ __ __ _| |_ ___  _
+// __ |  \| |/ _ \ \/ / __| |   / _ \ \ / / _ \ || || __/ _ \ '__/ _` | __/ _ \|
+// '__| | |\  |  __/>  <| |_| |__|  __/\ V /  __/ || || ||  __/ | | (_| | || (_)
+// | | |_| \_|\___/_/\_\\__|_____\___| \_/ \___|_|___|\__\___|_|
+// \__,_|\__\___/|_|
 //
 
 /// Explore all feasible variable associations in a level from a set of states
@@ -282,7 +300,7 @@ impl<'d, 't> NextLevelIterator<'d, 't> {
         NextLevelIterator {
             indexed_dag,
             expected_markers: expected_markers.into_iter().collect(),
-            gamma: gamma,
+            gamma,
             stack: vec![(HashSet::new(), HashSet::new())],
         }
     }

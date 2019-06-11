@@ -83,7 +83,8 @@ where
         col + (row * self.width)
     }
 
-    /// Get a submatrix containing only some rows and columns given as sorted iterator.
+    /// Get a submatrix containing only some rows and columns given as sorted
+    /// iterator.
     fn submatrix_sorted<U, V>(&self, rows: U, cols: V) -> Matrix<T>
     where
         U: Iterator<Item = usize> + Clone,
@@ -122,44 +123,16 @@ where
     }
 }
 
-//  ____        _                     _        _        ___ _
-// / ___| _   _| |__  _ __ ___   __ _| |_ _ __(_)_  __ |_ _| |_ ___ _ __
-// \___ \| | | | '_ \| '_ ` _ \ / _` | __| '__| \ \/ /  | || __/ _ \ '__|
-//  ___) | |_| | |_) | | | | | | (_| | |_| |  | |>  <   | || ||  __/ |
-// |____/ \__,_|_.__/|_| |_| |_|\__,_|\__|_|  |_/_/\_\ |___|\__\___|_|
-//
-
-// /// Iterator over data of a submatrix.
-// struct SubmatrixIterator<'a, T, U, V>
-// where
-//     U: Iterator<Item = usize>,
-//     V: Iterator<Item = usize>,
-// {
-//     matrix: &'a Matrix<T>,
-//
-//     /// Sorted iterator over row indices.
-//     iter_rows: U,
-//     /// Sorted iterator over column indices.
-//     iter_cols: V,
-// }
-//
-// impl<'a, T, U, V> Iterator for SubmatrixIterator<'a, T, U, V>
-// where
-//     U: Iterator<Item = usize>,
-//     V: Iterator<Item = usize>,
-// {
-//     type Item = &'a T;
-//
-//     fn next(&mut self) -> Option<&'a T> {
-//         None
-//     }
-// }
-
-//  ____              _                    __  __       _        _
-// | __ )  ___   ___ | | ___  __ _ _ __   |  \/  | __ _| |_ _ __(_) ___ ___  ___
-// |  _ \ / _ \ / _ \| |/ _ \/ _` | '_ \  | |\/| |/ _` | __| '__| |/ __/ _ \/ __|
-// | |_) | (_) | (_) | |  __/ (_| | | | | | |  | | (_| | |_| |  | | (_|  __/\__ \
-// |____/ \___/ \___/|_|\___|\__,_|_| |_| |_|  |_|\__,_|\__|_|  |_|\___\___||___/
+//  ____              _
+// | __ )  ___   ___ | | ___  __ _ _ __
+// |  _ \ / _ \ / _ \| |/ _ \/ _` | '_ \
+// | |_) | (_) | (_) | |  __/ (_| | | | |
+// |____/ \___/ \___/|_|\___|\__,_|_| |_|
+//  __  __       _        _
+// |  \/  | __ _| |_ _ __(_)_  __
+// | |\/| |/ _` | __| '__| \ \/ /
+// | |  | | (_| | |_| |  | |>  <
+// |_|  |_|\__,_|\__|_|  |_/_/\_\
 //
 
 impl Mul for &Matrix<bool> {

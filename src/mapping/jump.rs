@@ -7,19 +7,21 @@ use super::levelset::LevelSet;
 
 /// Generic Jump function inside a product DAG.
 ///
-/// The DAG will be built layer by layer by specifying the adjacency matrix from one level to the
-/// next one, an adjancency matrix can specify the structure inside of a level, made of
-/// 'assignation edges'. The goal of the structure is to be able to be able to navigate quickly
-/// from the last to the first layer by being able to skip any path that do not contain any
-/// assignation edges.
+/// The DAG will be built layer by layer by specifying the adjacency matrix from
+/// one level to the next one, an adjancency matrix can specify the structure
+/// inside of a level, made of 'assignation edges'. The goal of the structure is
+/// to be able to be able to navigate quickly from the last to the first layer
+/// by being able to skip any path that do not contain any assignation edges.
 pub struct Jump {
-    /// Represent levels in the levelset, which will be built on top of one another.
+    /// Represent levels in the levelset, which will be built on top of one
+    /// another.
     levelset: LevelSet,
     /// Last level that was built.
     last_level: usize,
 
-    /// Set of vertices that can't be jumped since it has an ingoing non-jumpable edge.
-    /// NOTE: it may only be required to store it for the last level.
+    /// Set of vertices that can't be jumped since it has an ingoing
+    /// non-jumpable edge. NOTE: it may only be required to store it for the
+    /// last level.
     nonjump_vertices: HashSet<(usize, usize)>,
     /// Keep track of number of jumps to a given vertex.
     count_ingoing_jumps: HashMap<(usize, usize), usize>,
@@ -30,8 +32,9 @@ pub struct Jump {
     rlevel: HashMap<usize, HashSet<usize>>,
     /// Reverse of `rlevel`.
     rev_rlevel: HashMap<usize, HashSet<usize>>,
-    /// For any pair of level `(i, j)` such that i is in the level `rlevel[j]`, `reach[i, j]` is
-    /// the accessibility matrix of vertices from level i to level j
+    /// For any pair of level `(i, j)` such that i is in the level `rlevel[j]`,
+    /// `reach[i, j]` is the accessibility matrix of vertices from level i
+    /// to level j
     reach: HashMap<(usize, usize), Matrix<bool>>,
 }
 
@@ -41,14 +44,14 @@ impl Jump {
         T: Iterator<Item = usize>,
     {
         let mut jump = Jump {
-            levelset: LevelSet::new(),
-            last_level: 0,
-            nonjump_vertices: HashSet::new(),
+            levelset:            LevelSet::new(),
+            last_level:          0,
+            nonjump_vertices:    HashSet::new(),
             count_ingoing_jumps: HashMap::new(),
-            jl: HashMap::new(),
-            rlevel: HashMap::new(),
-            rev_rlevel: HashMap::new(),
-            reach: HashMap::new(),
+            jl:                  HashMap::new(),
+            rlevel:              HashMap::new(),
+            rev_rlevel:          HashMap::new(),
+            reach:               HashMap::new(),
         };
 
         jump.rlevel.insert(0, HashSet::new());
@@ -60,12 +63,18 @@ impl Jump {
             jump.count_ingoing_jumps.insert((0, state), 0);
         }
 
+        // Init first level
         jump.extend_level(0, nonjump_adj);
+        for &vertex in jump.levelset.get_level(0).unwrap() {
+            jump.count_ingoing_jumps.insert((0, vertex), 0);
+        }
+
         jump
     }
 
-    /// Compute next level given the adjacency list of jumpable edges from current level to the
-    /// next one and adjacency list of non-jumpable edges inside the next level.
+    /// Compute next level given the adjacency list of jumpable edges from
+    /// current level to the next one and adjacency list of non-jumpable
+    /// edges inside the next level.
     pub fn init_next_level(&mut self, jump_adj: &Vec<Vec<usize>>, nonjump_adj: &Vec<Vec<usize>>) {
         let nonjump_vertices = &self.nonjump_vertices;
         let levelset = &mut self.levelset;
@@ -79,14 +88,14 @@ impl Jump {
 
         // Register jumpable transitions from this level to the next one
         for source in last_level_vertices {
-            // Notice that `source_jl` can be None, however, if it is not in nonjump_vertices it
-            // is sure that it is not None since it was necessary added by following an atomic
-            // transition.
+            // Notice that `source_jl` can be None, however, if it is not in
+            // nonjump_vertices it is sure that it is not None since it was
+            // necessary added by following an atomic transition.
             let source_jl = jl.get(&(last_level, source)).cloned();
 
             for &target in &jump_adj[source] {
-                // Compute the level target will jump to, depending if there is already an assigned
-                // jump level for target or not.
+                // Compute the level target will jump to, depending if there is already an
+                // assigned jump level for target or not.
                 let cmpt_jump_level = |previous_jl| {
                     if nonjump_vertices.contains(&(last_level, source)) {
                         last_level
@@ -110,7 +119,8 @@ impl Jump {
             }
         }
 
-        // If at some point the next level is not reached, the output will be empty anyway.
+        // If at some point the next level is not reached, the output will be empty
+        // anyway.
         if levelset.get_level(next_level) == None {
             return;
         }
@@ -121,11 +131,12 @@ impl Jump {
         self.last_level = next_level;
     }
 
-    /// Jump to the next relevant level from vertices in gamma at a given level. A relevent level
-    /// has a node from which there is a path to gamma and that has an ingoing assignation.
+    /// Jump to the next relevant level from vertices in gamma at a given level.
+    /// A relevent level has a node from which there is a path to gamma and
+    /// that has an ingoing assignation.
     ///
-    /// NOTE: It may be possible to return an iterator to refs of usize, but the autoref seems to
-    /// not do the work.
+    /// NOTE: It may be possible to return an iterator to refs of usize, but the
+    /// autoref seems to not do the work.
     pub fn jump<T>(&self, level: usize, gamma: T) -> Option<(usize, Vec<usize>)>
     where
         T: Clone + Iterator<Item = usize>,
@@ -141,18 +152,19 @@ impl Jump {
             Some(&lvl) => lvl,
         };
 
-        // NOTE: could convince Rust that the lifetime of this iterator is ok to return a map
-        // iterator.
+        // NOTE: could convince Rust that the lifetime of this iterator is ok to return
+        // a map iterator.
         let jump_level_vertices = self.levelset.get_level(jump_level).unwrap();
 
         let gamma2 = jump_level_vertices
             .iter()
             .enumerate()
-            .filter(|(l, _)| {
-                // NOTE: Maybe it could be more efficient to compute indices `k` before the filter.
+            .filter(|&(l, _)| {
+                // NOTE: Maybe it could be more efficient to compute indices `k` before the
+                // filter.
                 gamma.clone().any(
                     |source| match self.levelset.get_vertex_index(level, source) {
-                        Some(k) => self.reach[&(jump_level, level)][(*l, *k)],
+                        Some(k) => self.reach[&(jump_level, level)][(l, k)],
                         None => false,
                     },
                 )
@@ -169,7 +181,7 @@ impl Jump {
             .get_level(self.last_level)
             .unwrap()
             .iter()
-            .map(|x| *x)
+            .cloned()
             .collect()
     }
 
@@ -177,7 +189,8 @@ impl Jump {
         self.levelset.get_nb_levels()
     }
 
-    /// Extend current level by reading non-jumpable edges inside the given level.
+    /// Extend current level by reading non-jumpable edges inside the given
+    /// level.
     fn extend_level(&mut self, level: usize, nonjump_adj: &Vec<Vec<usize>>) {
         let levelset = &mut self.levelset;
         let nonjump_vertices = &mut self.nonjump_vertices;
@@ -191,8 +204,8 @@ impl Jump {
         }
     }
 
-    // Compute reach and rlevel, that is the effective jump points to all levels reachable from the
-    // current level.
+    // Compute reach and rlevel, that is the effective jump points to all levels
+    // reachable from the current level.
     fn init_reach(&mut self, level: usize, jump_adj: &Vec<Vec<usize>>) {
         let reach = &mut self.reach;
         let rlevel = &mut self.rlevel;
@@ -223,17 +236,18 @@ impl Jump {
         let mut new_reach = Matrix::new(prev_level.len(), curr_level.len(), false);
 
         for &source in prev_level {
-            let id_source = *self.levelset.get_vertex_index(level - 1, source).unwrap();
+            let id_source = self.levelset.get_vertex_index(level - 1, source).unwrap();
 
             for &target in &jump_adj[source] {
-                let id_target = *self.levelset.get_vertex_index(level, target).unwrap();
+                let id_target = self.levelset.get_vertex_index(level, target).unwrap();
                 *new_reach.at(id_source, id_target) = true;
             }
         }
 
         reach.insert((level - 1, level), new_reach);
 
-        // Compute by a dynamic algorithm the adjacency of current level with all its sublevels.
+        // Compute by a dynamic algorithm the adjacency of current level with all its
+        // sublevels.
         for &sublevel in &rlevel[&level] {
             // This eliminates the stupid cast of level 0.
             // TODO: fix this hardcoded behaviour.
@@ -257,59 +271,186 @@ impl Jump {
         }
 
         // Update Jump counters previous level
-        // let mut to_clean = Vec::new();
-        //
-        // for &sublevel in &rlevel[&level] {
-        //     let adjacency = &reach[&(sublevel, level)];
-        //
-        //     for (vertex, vertex_index) in self.levelset.iter_level(sublevel) {
-        //         let nb_pointers: usize = adjacency
-        //             .iter_row(vertex_index)
-        //             .map(|&x| if x { 1 } else { 0 })
-        //             .sum();
-        //
-        //         if nb_pointers != 0 {
-        //             *count_ingoing_jumps.get_mut(&(sublevel, vertex)).unwrap() += nb_pointers;
-        //         } else if count_ingoing_jumps.get(&(sublevel, vertex)) == Some(&0) {
-        //             to_clean.push((sublevel, vertex_index));
-        //         }
-        //     }
-        // }
-        //
-        // self.clean_vertices(to_clean);
-    }
+        let mut to_clean = Vec::new();
 
-    fn clean_vertices(&mut self, mut to_clean: Vec<(usize, usize)>) {
-        let count_ingoing_jumps = &mut self.count_ingoing_jumps;
-        let levelset = &mut self.levelset;
-        let rlevel = &mut self.rlevel;
-        let reach = &mut self.reach;
+        for &sublevel in &rlevel[&level] {
+            let adjacency = &reach[&(sublevel, level)];
 
-        // Update jump counters to the closest sublevel
-        while let Some((level, vertex_index)) = to_clean.pop() {
-            // levelset.remove_from_level(level, iter::once(vertex_index).collect());
+            for (vertex, vertex_index) in self.levelset.iter_level(sublevel) {
+                let nb_pointers: usize = adjacency
+                    .iter_row(vertex_index)
+                    .map(|&x| if x { 1 } else { 0 })
+                    .sum();
 
-            let sublevel = *rlevel[&level].iter().max().unwrap();
-            let subreach = &reach[&(sublevel, level)];
-
-            for (subvertex_index, adj) in subreach.iter_col(vertex_index).enumerate() {
-                if !adj {
-                    continue;
-                }
-
-                // TODO: counters should be indexed with the vertex index here (using a Vec?)
-                let subvertex = levelset.get_level(sublevel).unwrap()[subvertex_index];
-                let counter = count_ingoing_jumps.get_mut(&(sublevel, subvertex)).unwrap();
-
-                if *counter > 0 {
-                    *counter -= 1;
-                }
-
-                if *counter == 0 {
-                    to_clean.push((sublevel, subvertex_index));
+                if nb_pointers != 0 {
+                    *count_ingoing_jumps.get_mut(&(sublevel, vertex)).unwrap() += nb_pointers;
+                } else if count_ingoing_jumps.get(&(sublevel, vertex)) == Some(&0) {
+                    to_clean.push((sublevel, vertex_index));
                 }
             }
         }
+    }
+
+    /// Remove all useless nodes inside current level. A useless node is a node
+    /// from which there is no path of assignation to a node which can be jumped
+    /// to.
+    pub fn clean_level(&mut self, level: usize, jump_adj: &Vec<Vec<usize>>) -> bool {
+        if level == 0 {
+            // TODO: fix the reach[(0, 0)] exception
+            return false;
+        }
+
+        let curr_level = match self.levelset.get_level(level) {
+            None => return false,
+            Some(vertices) => vertices,
+        };
+
+        // Run over the level and eliminate all path that are not usefull ie. paths that
+        // don't access to a jumpable vertex
+        let mut seen = HashSet::new();
+        let mut lvl_vertices: HashSet<_> = curr_level.iter().cloned().collect();
+        let mut del_vertices: HashSet<_> = curr_level.iter().cloned().collect();
+
+        for &start in curr_level {
+            if seen.contains(&start) {
+                continue;
+            }
+
+            let mut heap = vec![(start, vec![start])];
+
+            while let Some((source, mut path)) = heap.pop() {
+                seen.insert(source);
+
+                // If the path can be identified as usefull, remove it from the set of vertices
+                // to delete.
+                let usefull_path = self.count_ingoing_jumps[&(level, source)] > 0
+                    || jump_adj[source].iter().any(|&vertex| {
+                        lvl_vertices.contains(&vertex) && !del_vertices.contains(&vertex)
+                    });
+
+                if usefull_path {
+                    for vertex in &path {
+                        del_vertices.remove(vertex);
+                    }
+
+                    path.clear();
+                }
+
+                for target in &jump_adj[source] {
+                    if lvl_vertices.contains(target) && !seen.contains(target) {
+                        assert!(del_vertices.contains(target));
+                        let mut target_path = path.to_vec();
+                        target_path.push(*target);
+                        heap.push((*target, target_path));
+                    }
+                }
+            }
+        }
+
+        if del_vertices.is_empty() {
+            return false;
+        }
+
+        // print!("Clean level {}:", level);
+        // for &vertex in del_vertices.iter() {
+        //     print!(" {}", vertex);
+        // }
+        // print!("\n");
+
+        let removed_columns: Vec<_> = del_vertices
+            .iter()
+            .map(|&vertex| self.levelset.get_vertex_index(level, vertex).unwrap())
+            .collect();
+
+        // Update the levelset and update borrowed value
+        self.levelset.remove_from_level(level, &del_vertices);
+        let default_level = Vec::new();
+        let curr_level = self.levelset.get_level(level).unwrap_or(&default_level);
+
+        for &vertex in &del_vertices {
+            self.jl.remove(&(level, vertex));
+            self.count_ingoing_jumps.remove(&(level, vertex));
+        }
+
+        if !self.levelset.has_level(level) {
+            for &sublevel in &self.rlevel[&level] {
+                let adjacency = &self.reach[&(sublevel, level)];
+
+                // FIXME: this should be placed before branchement?
+                for (vertex, vertex_index) in self.levelset.iter_level(sublevel) {
+                    let nb_pointers: usize = adjacency
+                        .iter_row(vertex_index)
+                        .map(|&x| if x { 1 } else { 0 })
+                        .sum();
+
+                    if nb_pointers != 0 {
+                        *self
+                            .count_ingoing_jumps
+                            .get_mut(&(sublevel, vertex))
+                            .unwrap() += nb_pointers;
+                    }
+                }
+            }
+
+            for &uplevel in &self.rev_rlevel[&level] {
+                self.reach.remove(&(level, uplevel));
+                self.rlevel.get_mut(&uplevel).unwrap().remove(&level);
+            }
+
+            for &sublevel in &self.rlevel[&level] {
+                self.rev_rlevel.get_mut(&sublevel).unwrap().remove(&level);
+            }
+
+            self.rlevel.remove(&level);
+            self.rev_rlevel.remove(&level);
+        } else {
+            // Update rlevel
+            let new_rlevel: HashSet<_> = curr_level
+                .iter()
+                .filter_map(|&vertex| self.jl.get(&(level, vertex)).cloned())
+                .collect();
+
+            // Update jump counters to sublevels, if a sublevel is removed from rlevel, then
+            // we need to remove jump pointers from any vertex of the level, overwise only
+            // from removed vertices.
+            for &sublevel in self.rlevel[&level].difference(&new_rlevel) {
+                for &vertex in self.levelset.get_level(sublevel).unwrap() {
+                    let adjacency = &self.reach[&(sublevel, level)];
+                    let vertex_index = self.levelset.get_vertex_index(sublevel, vertex).unwrap();
+                    let nb_removed: usize = adjacency
+                        .iter_row(vertex_index)
+                        .map(|&x| if x { 1 } else { 0 })
+                        .sum();
+
+                    if nb_removed > 0 {
+                        *self
+                            .count_ingoing_jumps
+                            .get_mut(&(sublevel, vertex))
+                            .unwrap() -= nb_removed;
+                    }
+                }
+            }
+
+            for sublevel in new_rlevel {
+                for &vertex in self.levelset.get_level(sublevel).unwrap() {
+                    let adjacency = &self.reach[&(sublevel, level)];
+                    let vertex_index = self.levelset.get_vertex_index(sublevel, vertex).unwrap();
+                    let nb_removed: usize = removed_columns
+                        .iter()
+                        .map(|&col| if adjacency[(vertex_index, col)] { 1 } else { 0 })
+                        .sum();
+
+                    if nb_removed > 0 {
+                        *self
+                            .count_ingoing_jumps
+                            .get_mut(&(sublevel, vertex))
+                            .unwrap() -= nb_removed;
+                    }
+                }
+            }
+        }
+
+        true
     }
 }
 
@@ -330,6 +471,5 @@ impl fmt::Debug for Jump {
         }
 
         Ok(())
-        // write!(f, "{:?}", self.jl)
     }
 }

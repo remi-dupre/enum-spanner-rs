@@ -10,7 +10,8 @@ use super::super::automaton::atom::Atom;
 use super::super::automaton::Label;
 use super::super::mapping::{Marker, Variable};
 
-/// A simple Hir, with branchements of arity at most 2 and at least redondancy as possible.
+/// A simple Hir, with branchements of arity at most 2 and at least redondancy
+/// as possible.
 #[derive(Clone, Debug)]
 pub enum Hir {
     /// Empty langage

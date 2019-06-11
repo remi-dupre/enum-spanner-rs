@@ -5,7 +5,8 @@ use super::{Mapping, Marker};
 
 /// Enumerate all the matches of a variable automata over a text.
 ///
-/// ** For this naive implementation, there is no garantee that produced matches are distincts. **
+/// ** For this naive implementation, there is no garantee that produced matches
+/// are distincts. **
 pub struct NaiveEnum<'a, 't> {
     automaton: &'a Automaton,
     text: &'t str,

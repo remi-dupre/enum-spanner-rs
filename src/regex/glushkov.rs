@@ -1,5 +1,6 @@
-/// Implementation of the Glushkov's construction algorithm to build a linearized language out of a
-/// regexp's HIR, and finaly convert this expression to a variable NFA.
+/// Implementation of the Glushkov's construction algorithm to build a
+/// linearized language out of a regexp's HIR, and finaly convert this
+/// expression to a variable NFA.
 use std::collections::LinkedList;
 use std::rc::Rc;
 
@@ -19,9 +20,9 @@ pub struct GlushkovFactors {
     g: bool,
 }
 
-/// A linearized (distinguishable from others in the input regex) label, the language of words over
-/// this alphabet is local, however if it is unlinearized it is possible to get back to the
-/// original regular language.
+/// A linearized (distinguishable from others in the input regex) label, the
+/// language of words over this alphabet is local, however if it is unlinearized
+/// it is possible to get back to the original regular language.
 #[derive(Clone, Debug)]
 pub struct GlushkovTerm {
     id: usize,
@@ -34,8 +35,9 @@ pub struct LocalLang {
     pub factors: GlushkovFactors,
 }
 
-/// A local language is a regular language that can be identified with only its factors of size 2,
-/// its prefixes and suffixes and wether it contains the empty word or not.
+/// A local language is a regular language that can be identified with only its
+/// factors of size 2, its prefixes and suffixes and wether it contains the
+/// empty word or not.
 impl LocalLang {
     /// Create an automaton that recognise the same langage.
     pub fn into_automaton(self) -> Automaton {
@@ -80,7 +82,8 @@ impl LocalLang {
         }
     }
 
-    /// Register a new atom in the local language and return the associated term.
+    /// Register a new atom in the local language and return the associated
+    /// term.
     fn register_label(&mut self, label: Rc<Label>, id_offset: usize) -> GlushkovTerm {
         self.nb_terms += 1;
         GlushkovTerm {
@@ -89,7 +92,8 @@ impl LocalLang {
         }
     }
 
-    /// Return a local language representing an expression containing a single term.
+    /// Return a local language representing an expression containing a single
+    /// term.
     fn label(label: Rc<Label>, id_offset: usize) -> LocalLang {
         let mut lang = LocalLang::empty();
         let term = lang.register_label(label, id_offset);
@@ -111,8 +115,8 @@ impl LocalLang {
         }
     }
 
-    /// Return a local language containing the concatenation of words from the first and second
-    /// input languages.
+    /// Return a local language containing the concatenation of words from the
+    /// first and second input languages.
     fn concatenation(lang1: LocalLang, lang2: LocalLang) -> LocalLang {
         let nb_terms = lang1.nb_terms + lang2.nb_terms;
         let mut factors = GlushkovFactors {
@@ -146,7 +150,8 @@ impl LocalLang {
         LocalLang { nb_terms, factors }
     }
 
-    /// Return a local language containing words from the first or the second input languages.
+    /// Return a local language containing words from the first or the second
+    /// input languages.
     fn alternation(lang1: LocalLang, mut lang2: LocalLang) -> LocalLang {
         let nb_terms = lang1.nb_terms + lang2.nb_terms;
         let mut factors = lang1.factors;
@@ -159,14 +164,15 @@ impl LocalLang {
         LocalLang { nb_terms, factors }
     }
 
-    /// Return a local language containing the empty word and the input language.
+    /// Return a local language containing the empty word and the input
+    /// language.
     fn optional(mut lang: LocalLang) -> LocalLang {
         lang.factors.g = true;
         lang
     }
 
-    /// Return a local language containing words made of one or more repetitions of words of the
-    /// input language.
+    /// Return a local language containing words made of one or more repetitions
+    /// of words of the input language.
     fn closure(mut lang: LocalLang) -> LocalLang {
         for x in &lang.factors.d {
             for y in &lang.factors.p {

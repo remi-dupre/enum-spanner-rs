@@ -66,8 +66,8 @@ impl Automaton {
         &self.adj
     }
 
-    /// Get the adjacency list representing transitions of the automaton that can be used when
-    /// reading a given char.
+    /// Get the adjacency list representing transitions of the automaton that
+    /// can be used when reading a given char.
     pub fn get_adj_for_char(&mut self, x: char) -> &Vec<Vec<usize>> {
         let nb_states = self.get_nb_states();
         let adj_for_char = &mut self.adj_for_char;
@@ -88,18 +88,20 @@ impl Automaton {
         })
     }
 
-    /// Get adjacency lists labeled with the corresponding marker for transitions labeled with an
-    /// assignation.
+    /// Get adjacency lists labeled with the corresponding marker for
+    /// transitions labeled with an assignation.
     pub fn get_assignations(&self) -> &Vec<Vec<(Rc<Label>, usize)>> {
         &self.assignations
     }
 
-    /// Get the reverse of assignations as defined in `Automata::get_assignations`.
+    /// Get the reverse of assignations as defined in
+    /// `Automata::get_assignations`.
     pub fn get_rev_assignations(&self) -> &Vec<Vec<(Rc<Label>, usize)>> {
         &self.rev_assignations
     }
 
-    /// Get the closure as adjacency lists for transitions labeled with an assignation.
+    /// Get the closure as adjacency lists for transitions labeled with an
+    /// assignation.
     pub fn get_closure_for_assignations(&self) -> &Vec<Vec<usize>> {
         &self.closure_for_assignations
     }

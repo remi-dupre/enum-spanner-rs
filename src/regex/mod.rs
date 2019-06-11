@@ -24,9 +24,10 @@ pub fn compile_matches<'t>(automaton: Automaton, text: &'t str) -> mapping::Inde
     mapping::IndexedDag::compile(automaton, text)
 }
 
-/// Reformat the regex to get a regex matching the whole regex in a group called *match*.
-/// The new regex will allow any prefix or suffix to be matched before the old regex, except if
-/// the input regex contains anchors at its begining or end.
+/// Reformat the regex to get a regex matching the whole regex in a group called
+/// *match*. The new regex will allow any prefix or suffix to be matched before
+/// the old regex, except if the input regex contains anchors at its begining or
+/// end.
 fn reformat(regex: &str) -> String {
     let regex = match regex.as_bytes().first() {
         Some(c) if *c == b'^' => format!("(?P<match>{}", &regex[1..]),

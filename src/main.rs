@@ -112,7 +112,7 @@ fn main() {
         println!("{}", count)
     } else {
         for (count, mapping) in compiled_matches.iter().enumerate() {
-            print!("{} -", count);
+            print!("{} -", count + 1);
 
             if show_offset {
                 for (name, range) in mapping.iter_groups() {
