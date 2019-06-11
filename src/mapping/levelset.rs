@@ -9,6 +9,7 @@ use std::iter;
 pub struct LevelSet {
     /// Index level contents: `level id` -> `vertex id's list`.
     levels: HashMap<usize, Vec<usize>>,
+
     /// Index the id of a vertex iner to a level:
     ///     `(level id, vertex id)` -> `vertex position`.
     /// It can also be used to check if a pair `(level, vertex)` is already
@@ -74,24 +75,24 @@ impl LevelSet {
     /// Remove a set of vertices from a level, if the level is left empty, it is
     /// then removed.
     pub fn remove_from_level(&mut self, level: usize, del_vertices: &HashSet<usize>) {
+        // TODO: in place deletion (may require unsafe rust?)
         let mut new_level = Vec::new();
+        let old_level = &self.levels[&level];
 
-        if let Some(old_level) = self.levels.get(&level) {
-            for old_vertex in old_level {
-                if !del_vertices.contains(old_vertex) {
-                    new_level.push(*old_vertex);
-                    self.vertex_index
-                        .insert((level, *old_vertex), new_level.len() - 1);
-                } else {
-                    self.vertex_index.remove(&(level, *old_vertex));
-                }
-            }
-
-            if !new_level.is_empty() {
-                self.levels.insert(level, new_level);
+        for &old_vertex in old_level {
+            if !del_vertices.contains(&old_vertex) {
+                self.vertex_index
+                    .insert((level, old_vertex), new_level.len());
+                new_level.push(old_vertex);
             } else {
-                self.levels.remove(&level);
+                self.vertex_index.remove(&(level, old_vertex));
             }
+        }
+
+        if !new_level.is_empty() {
+            self.levels.insert(level, new_level);
+        } else {
+            self.levels.remove(&level);
         }
     }
 }

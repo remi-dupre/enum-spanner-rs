@@ -283,13 +283,6 @@ impl Jump {
 
                 if nb_pointers != 0 {
                     *count_ingoing_jumps.get_mut(&(sublevel, vertex)).unwrap() += nb_pointers;
-                    println!(
-                        "incr {} {} of {} ({})",
-                        sublevel,
-                        vertex,
-                        nb_pointers,
-                        count_ingoing_jumps[&(sublevel, vertex)]
-                    );
                 }
             }
         }
@@ -342,7 +335,7 @@ impl Jump {
 
                 for target in &jump_adj[source] {
                     if lvl_vertices.contains(target) && !seen.contains(target) {
-                        assert!(del_vertices.contains(target));
+                        debug_assert!(del_vertices.contains(target));
                         let mut target_path = path.to_vec();
                         target_path.push(*target);
                         heap.push((*target, target_path));
@@ -355,16 +348,22 @@ impl Jump {
             return false;
         }
 
-        // print!("Clean level {}:", level);
-        // for &vertex in del_vertices.iter() {
-        //     print!(" {}", vertex);
-        // }
-        // print!("\n");
-
         let removed_columns: Vec<_> = del_vertices
             .iter()
             .map(|&vertex| self.levelset.get_vertex_index(level, vertex).unwrap())
             .collect();
+
+        for &col in &removed_columns {
+            for &sublevel in &self.rlevel[&level] {
+                assert!(
+                    col < self.reach[&(sublevel, level)].get_width(),
+                    "Index {} inconsistant for {} {}",
+                    col,
+                    sublevel,
+                    level
+                );
+            }
+        }
 
         // Update the levelset and update borrowed value
         self.levelset.remove_from_level(level, &del_vertices);
@@ -392,7 +391,6 @@ impl Jump {
                             .count_ingoing_jumps
                             .get_mut(&(sublevel, vertex))
                             .unwrap() += nb_pointers;
-                        println!("incr {} {} of {}", sublevel, vertex, nb_pointers);
                     }
                 }
             }
@@ -430,10 +428,6 @@ impl Jump {
                         .sum();
 
                     if nb_removed > 0 {
-                        println!(
-                            "decr {} {} of {} -- removed link to level {}",
-                            sublevel, vertex, nb_removed, level
-                        );
                         *self
                             .count_ingoing_jumps
                             .get_mut(&(sublevel, vertex))
@@ -452,7 +446,6 @@ impl Jump {
                         .sum();
 
                     if nb_removed > 0 {
-                        println!("decr {} {} of {} -- kept", sublevel, vertex, nb_removed);
                         *self
                             .count_ingoing_jumps
                             .get_mut(&(sublevel, vertex))
@@ -484,8 +477,8 @@ impl Jump {
 
             for &sublevel in &self.rlevel[&level] {
                 self.reach.insert(
-                    (level, sublevel),
-                    self.reach[&(level, sublevel)]
+                    (sublevel, level),
+                    self.reach[&(sublevel, level)]
                         .truncate(iter::empty(), removed_columns.iter().cloned()),
                 );
             }

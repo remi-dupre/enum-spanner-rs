@@ -7,8 +7,8 @@ use super::tools::iter_complement;
 /// Naive representation of a matrix as a single consecutive chunk of memory.
 pub struct Matrix<T> {
     height: usize,
-    width: usize,
-    data: Vec<T>,
+    width:  usize,
+    data:   Vec<T>,
 }
 
 // Custom trait for matrices that can be right-multiplied by a column vector.
@@ -29,6 +29,14 @@ where
         }
     }
 
+    pub fn get_height(&self) -> usize {
+        self.height
+    }
+
+    pub fn get_width(&self) -> usize {
+        self.width
+    }
+
     /// Mutable access to an element of the matrix.
     pub fn at(&mut self, row: usize, col: usize) -> &mut T {
         let index = self.data_index(row, col);
@@ -37,7 +45,7 @@ where
 
     /// Get an iterator over a column of the matrix.
     pub fn iter_col(&self, col: usize) -> impl Iterator<Item = &T> {
-        assert!(col < self.width);
+        debug_assert!(col < self.width);
         self.data
             .iter()
             .skip(col)
@@ -47,7 +55,7 @@ where
 
     /// Get an iterator over a row of the matrix.
     pub fn iter_row(&self, row: usize) -> impl Iterator<Item = &T> {
-        assert!(row < self.height);
+        debug_assert!(row < self.height);
         self.data.iter().skip(row * self.width).take(self.width)
     }
 
@@ -57,14 +65,8 @@ where
         U: Iterator<Item = usize>,
         V: Iterator<Item = usize>,
     {
-        let mut del_rows: Vec<_> = del_rows.collect();
-        let mut del_cols: Vec<_> = del_cols.collect();
-        del_rows.sort();
-        del_cols.sort();
-
-        let kept_rows = iter_complement(0, self.height, del_rows.into_iter());
-        let kept_cols = iter_complement(0, self.width, del_cols.into_iter());
-
+        let kept_rows = iter_complement(0, self.height, del_rows);
+        let kept_cols = iter_complement(0, self.width, del_cols);
         self.submatrix_sorted(kept_rows, kept_cols)
     }
 
@@ -78,8 +80,8 @@ where
 
     /// Get the index of a cell in the data vector.
     fn data_index(&self, row: usize, col: usize) -> usize {
-        assert!(col < self.width);
-        assert!(row < self.height);
+        debug_assert!(col < self.width);
+        debug_assert!(row < self.height);
         col + (row * self.width)
     }
 
@@ -96,7 +98,7 @@ where
             .clone()
             .map(|row| cols.clone().map(move |col| self.data_index(row, col)))
             .flatten();
-        let data = indices
+        let data: Vec<_> = indices
             .scan(0, |expected_index, index| {
                 let val = all_data_iter.nth(index - *expected_index);
                 *expected_index = index + 1;
@@ -105,8 +107,8 @@ where
             .collect();
 
         Matrix {
-            width: rows.count(),
-            height: cols.count(),
+            width: cols.count(),
+            height: rows.count(),
             data,
         }
     }
