@@ -42,7 +42,6 @@ impl<'t> IndexedDag<'t> {
             jump.init_next_level(adj_for_char, &closure_for_assignations);
 
             // Clean levels at exponential depth
-
             if curr_level > 0 {
                 // TODO: this is not as "fancy" as a `x & -x`
                 let depth = (2 as usize).pow(curr_level.trailing_zeros());
@@ -50,6 +49,10 @@ impl<'t> IndexedDag<'t> {
                 for level in ((curr_level - depth + 1)..=curr_level).rev() {
                     jump.clean_level(level, &closure_for_assignations);
                 }
+            }
+
+            if jump.is_disconnected() {
+                break;
             }
         }
 

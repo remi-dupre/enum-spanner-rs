@@ -132,6 +132,10 @@ impl Jump {
         self.last_level = next_level;
     }
 
+    pub fn is_disconnected(&self) -> bool {
+        !self.levelset.has_level(self.last_level)
+    }
+
     /// Jump to the next relevant level from vertices in gamma at a given level.
     /// A relevent level has a node from which there is a path to gamma and
     /// that has an ingoing assignation.
@@ -178,6 +182,10 @@ impl Jump {
 
     /// Get the vertices that are in the final layer
     pub fn finals(&self) -> HashSet<usize> {
+        if self.is_disconnected() {
+            return HashSet::new();
+        }
+
         self.levelset
             .get_level(self.last_level)
             .unwrap()
