@@ -14,10 +14,7 @@ pub fn compile(regex: &str) -> Automaton {
 pub fn is_match(regex: &str, text: &str) -> bool {
     let automaton = compile(&regex);
     let matches = compile_matches(automaton, text);
-
-    // TODO: investigate this weird borrow checker behaviour
-    let ret = matches.iter().next().is_some();
-    ret
+    matches.iter().next().is_some()
 }
 
 pub fn compile_matches<'t>(automaton: Automaton, text: &'t str) -> mapping::IndexedDag<'t> {
