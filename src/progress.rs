@@ -141,11 +141,16 @@ where
     fn next(&mut self) -> Option<U> {
         let ret = self.iterator.next();
 
-        if let None = ret {
-            self.refresh();
-            eprint!("\n");
-        } else if self.last_refresh.elapsed().as_millis() > REFRESH_DELAY {
-            self.refresh();
+        match ret {
+            None => {
+                self.refresh();
+                eprint!("\n");
+            }
+            Some(_) => {
+                if self.last_refresh.elapsed().as_millis() > REFRESH_DELAY {
+                    self.refresh();
+                }
+            }
         }
 
         self.count_iterations += 1;

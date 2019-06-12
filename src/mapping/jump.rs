@@ -313,8 +313,8 @@ impl Jump {
         // Run over the level and eliminate all path that are not usefull ie. paths that
         // don't access to a jumpable vertex
         let mut seen = HashSet::new();
-        let mut lvl_vertices: HashSet<_> = curr_level.iter().cloned().collect();
         let mut del_vertices: HashSet<_> = curr_level.iter().cloned().collect();
+        let lvl_vertices = del_vertices.clone();
 
         for &start in curr_level {
             if seen.contains(&start) {
@@ -383,26 +383,28 @@ impl Jump {
             self.count_ingoing_jumps.remove(&(level, vertex));
         }
 
-        if !self.levelset.has_level(level) {
-            for &sublevel in &self.rlevel[&level] {
+        // Update jump counters to sublevels, if a sublevel is removed from rlevel, then
+        // we need to remove jump pointers from any vertex of the level, overwise only
+        // from removed vertices.
+        for &sublevel in &self.rlevel[&level] {
+            for &vertex in self.levelset.get_level(sublevel).unwrap() {
                 let adjacency = &self.reach[&(sublevel, level)];
+                let vertex_index = self.levelset.get_vertex_index(sublevel, vertex).unwrap();
+                let nb_removed: usize = removed_columns
+                    .iter()
+                    .map(|&col| if adjacency[(vertex_index, col)] { 1 } else { 0 })
+                    .sum();
 
-                // FIXME: this should be placed before branchement?
-                for (vertex, vertex_index) in self.levelset.iter_level(sublevel) {
-                    let nb_pointers: usize = adjacency
-                        .iter_row(vertex_index)
-                        .map(|&x| if x { 1 } else { 0 })
-                        .sum();
-
-                    if nb_pointers != 0 {
-                        *self
-                            .count_ingoing_jumps
-                            .get_mut(&(sublevel, vertex))
-                            .unwrap() += nb_pointers;
-                    }
+                if nb_removed > 0 {
+                    *self
+                        .count_ingoing_jumps
+                        .get_mut(&(sublevel, vertex))
+                        .unwrap() -= nb_removed;
                 }
             }
+        }
 
+        if !self.levelset.has_level(level) {
             for &uplevel in &self.rev_rlevel[&level] {
                 self.reach.remove(&(level, uplevel));
                 self.rlevel.get_mut(&uplevel).unwrap().remove(&level);
@@ -420,47 +422,6 @@ impl Jump {
                 .iter()
                 .filter_map(|&vertex| self.jl.get(&(level, vertex)).cloned())
                 .collect();
-
-            // Update jump counters to sublevels, if a sublevel is removed from rlevel, then
-            // we need to remove jump pointers from any vertex of the level, overwise only
-            // from removed vertices.
-            // TODO: I think it's covered by next case (removed sublevels have all
-            // subvertices removed)
-            for &sublevel in self.rlevel[&level].difference(&new_rlevel) {
-                for &vertex in self.levelset.get_level(sublevel).unwrap() {
-                    let adjacency = &self.reach[&(sublevel, level)];
-                    let vertex_index = self.levelset.get_vertex_index(sublevel, vertex).unwrap();
-                    let nb_removed: usize = adjacency
-                        .iter_row(vertex_index)
-                        .map(|&x| if x { 1 } else { 0 })
-                        .sum();
-
-                    if nb_removed > 0 {
-                        *self
-                            .count_ingoing_jumps
-                            .get_mut(&(sublevel, vertex))
-                            .unwrap() -= nb_removed;
-                    }
-                }
-            }
-
-            for &sublevel in &new_rlevel {
-                for &vertex in self.levelset.get_level(sublevel).unwrap() {
-                    let adjacency = &self.reach[&(sublevel, level)];
-                    let vertex_index = self.levelset.get_vertex_index(sublevel, vertex).unwrap();
-                    let nb_removed: usize = removed_columns
-                        .iter()
-                        .map(|&col| if adjacency[(vertex_index, col)] { 1 } else { 0 })
-                        .sum();
-
-                    if nb_removed > 0 {
-                        *self
-                            .count_ingoing_jumps
-                            .get_mut(&(sublevel, vertex))
-                            .unwrap() -= nb_removed;
-                    }
-                }
-            }
 
             // Remove deprecated links in reach and rlevel
             for &sublevel in self.rlevel[&level].difference(&new_rlevel) {
