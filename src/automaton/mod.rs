@@ -16,9 +16,9 @@ use super::mapping::Marker;
 //
 #[derive(Clone, Debug)]
 pub struct Automaton {
-    pub nb_states: usize,
+    pub nb_states:   usize,
     pub transitions: Vec<(usize, Rc<Label>, usize)>,
-    pub finals: HashSet<usize>,
+    pub finals:      HashSet<usize>,
 
     // Redundant caching structures
     adj: Vec<Vec<(Rc<Label>, usize)>>,

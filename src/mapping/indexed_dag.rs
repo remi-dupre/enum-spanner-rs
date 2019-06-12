@@ -71,7 +71,6 @@ impl<'t> IndexedDag<'t> {
         self.jump.get_nb_levels()
     }
 
-    /// TODO: implement this as an iterable.
     fn next_level<'d>(&'d self, gamma: Vec<usize>) -> NextLevelIterator<'d, 't> {
         let adj = self.automaton.get_rev_assignations();
 
@@ -113,10 +112,9 @@ impl<'t> IndexedDag<'t> {
             path_set.insert(state, Some(HashSet::new()));
         }
 
-        // TODO: Move this to a `tools` module.
-        let are_incomparable = |set1: &HashSet<_>, set2: &HashSet<_>| {
-            set1.iter().any(|x| !set2.contains(x)) && set2.iter().any(|x| !set1.contains(x))
-        };
+        // Check if two sets are incomparable
+        let are_incomparable =
+            |set1: &HashSet<_>, set2: &HashSet<_>| !set1.is_subset(&set2) && !set2.is_subset(&set1);
 
         // NOTE: Consider writing this as a recursive function?
         let mut queue: VecDeque<_> = gamma.iter().map(|x| *x).collect();
@@ -178,10 +176,10 @@ impl<'t> IndexedDag<'t> {
 
 struct IndexedDagIterator<'d, 't> {
     indexed_dag: &'d IndexedDag<'t>,
-    stack:       Vec<(usize, Vec<usize>, HashSet<(&'d Marker, usize)>)>,
+    stack:       Vec<(usize, Vec<usize>, Vec<(&'d Marker, usize)>)>,
 
     curr_level:      usize,
-    curr_mapping:    HashSet<(&'d Marker, usize)>, // TODO: HashSet required?
+    curr_mapping:    Vec<(&'d Marker, usize)>, // TODO: HashSet required?
     curr_next_level: NextLevelIterator<'d, 't>,
 }
 
@@ -196,13 +194,13 @@ impl<'d, 't> IndexedDagIterator<'d, 't> {
 
         IndexedDagIterator {
             indexed_dag,
-            stack: vec![(indexed_dag.text.chars().count(), start, HashSet::new())],
+            stack: vec![(indexed_dag.text.chars().count(), start, Vec::new())],
 
             // `curr_next_level` is initialized empty, thus theses values will
             // be replaced before the first iteration.
             curr_next_level: NextLevelIterator::empty(indexed_dag),
             curr_level: usize::default(),
-            curr_mapping: HashSet::default(),
+            curr_mapping: Vec::default(),
         }
     }
 }
@@ -221,7 +219,7 @@ impl<'d, 't> Iterator for IndexedDagIterator<'d, 't> {
 
                 let mut new_mapping = self.curr_mapping.clone();
                 for marker in s_p {
-                    new_mapping.insert((marker, self.curr_level));
+                    new_mapping.push((marker, self.curr_level));
                 }
 
                 if self.curr_level == 0
@@ -259,12 +257,16 @@ impl<'d, 't> Iterator for IndexedDagIterator<'d, 't> {
     }
 }
 
-//  _   _           _   _                   _ ___ _                 _
-// | \ | | _____  _| |_| |    _____   _____| |_ _| |_ ___ _ __ __ _| |_ ___  _
-// __ |  \| |/ _ \ \/ / __| |   / _ \ \ / / _ \ || || __/ _ \ '__/ _` | __/ _ \|
-// '__| | |\  |  __/>  <| |_| |__|  __/\ V /  __/ || || ||  __/ | | (_| | || (_)
-// | | |_| \_|\___/_/\_\\__|_____\___| \_/ \___|_|___|\__\___|_|
-// \__,_|\__\___/|_|
+//  _   _           _   _                   _
+// | \ | | _____  _| |_| |    _____   _____| |
+// |  \| |/ _ \ \/ / __| |   / _ \ \ / / _ \ |
+// | |\  |  __/>  <| |_| |__|  __/\ V /  __/ |
+// |_| \_|\___/_/\_\\__|_____\___| \_/ \___|_|
+//  ___ _                 _
+// |_ _| |_ ___ _ __ __ _| |_ ___  _ __
+//  | || __/ _ \ '__/ _` | __/ _ \| '__|
+//  | || ||  __/ | | (_| | || (_) | |
+// |___|\__\___|_|  \__,_|\__\___/|_|
 //
 
 /// Explore all feasible variable associations in a level from a set of states
@@ -279,7 +281,7 @@ struct NextLevelIterator<'d, 't> {
     /// Set of states we start the run from.
     gamma: Vec<usize>,
 
-    /// TODO
+    /// The current state of the iterator
     stack: Vec<(HashSet<&'d Marker>, HashSet<&'d Marker>)>,
 }
 

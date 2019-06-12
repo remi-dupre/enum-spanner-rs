@@ -5,10 +5,10 @@ use std::time::Instant;
 use super::regex;
 
 struct BenchmarkCase {
-    name: &'static str,
-    comment: &'static str,
+    name:     &'static str,
+    comment:  &'static str,
     filename: &'static str,
-    regex: &'static str,
+    regex:    &'static str,
 }
 
 pub fn run_all_tests<T>(stream: &mut T) -> Result<(), std::io::Error>
@@ -21,35 +21,35 @@ where
 
     let benchmarks = vec![
         BenchmarkCase {
-            name: "First columns of CSV",
-            comment: "Extract the first three columns of the input CSV document.",
+            name:     "First columns of CSV",
+            comment:  "Extract the first three columns of the input CSV document.",
             filename: "benchmarks/pablo_alto_trees.csv",
-            regex: r"\n(?P<x>[^,]+),(?P<y>[^,]+),(?P<z>[^,]+),",
+            regex:    r"\n(?P<x>[^,]+),(?P<y>[^,]+),(?P<z>[^,]+),",
         },
         BenchmarkCase {
-            name: "Pairs of words",
-            comment: "Extract all pairs of words that are in the same sentence.",
+            name:     "Pairs of words",
+            comment:  "Extract all pairs of words that are in the same sentence.",
             filename: "benchmarks/lorem_ipsum.txt",
-            regex: r"[^\w](?P<word1>\w+)[^\w]((.|\n)*[^\w])?(?P<word2>\w+)[^\w]",
+            regex:    r"[^\w](?P<word1>\w+)[^\w]((.|\n)*[^\w])?(?P<word2>\w+)[^\w]",
         },
         BenchmarkCase {
-            name: "Close DNA",
-            comment: "Find two substrings of a DNA sequence that are close from one another.",
+            name:     "Close DNA",
+            comment:  "Find two substrings of a DNA sequence that are close from one another.",
             filename: "benchmarks/dna.txt",
-            regex: r"TTAC.{0,1000}CACC",
+            regex:    r"TTAC.{0,1000}CACC",
         },
         BenchmarkCase {
-            name: "All substrings",
-            comment: "Extract all non-empty substrings from the input document.",
+            name:     "All substrings",
+            comment:  "Extract all non-empty substrings from the input document.",
             filename: "benchmarks/lorem_ipsum.txt",
-            regex: r"(.|\n)+",
+            regex:    r"(.|\n)+",
         },
     ];
 
     for benchmark in benchmarks {
         let mut input = String::new();
 
-        write!(stream, "{} ---------------\n", benchmark.name)?;
+        write!(stream, "-- {} ---------------\n", benchmark.name)?;
         write!(stream, "{}\n", benchmark.comment)?;
 
         // Read input file content.

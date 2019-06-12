@@ -75,7 +75,7 @@ impl LevelSet {
     /// Remove a set of vertices from a level, if the level is left empty, it is
     /// then removed.
     pub fn remove_from_level(&mut self, level: usize, del_vertices: &HashSet<usize>) {
-        // TODO: in place deletion (may require unsafe rust?)
+        // TODO: in place deletion (may be doable with unsafe rust?)
         let mut new_level = Vec::new();
         let old_level = &self.levels[&level];
 

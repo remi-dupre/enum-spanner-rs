@@ -52,6 +52,12 @@ fn main() {
                 .long("count")
                 .help("Display the number of matches instead."),
         )
+        .arg(
+            Arg::with_name("debug_infos")
+                .short("i")
+                .long("debug-infos")
+                .help("Display debuging infos"),
+        )
         .get_matches();
 
     // Extract parameters
@@ -59,6 +65,7 @@ fn main() {
     let count = matches.is_present("count");
     let regex = matches.value_of("regex").unwrap();
     let show_offset = matches.is_present("bytes_offset");
+    let debug_infos = matches.is_present("debug_infos");
 
     //  ____                  _                          _
     // | __ )  ___ _ __   ___| |__  _ __ ___   __ _ _ __| | __
@@ -100,6 +107,7 @@ fn main() {
     // | |  | | (_| | || (__| | | |
     // |_|  |_|\__,_|\__\___|_| |_|
     //
+
     let regex = regex::compile(regex);
     regex
         .render("automaton.dot")
@@ -126,5 +134,17 @@ fn main() {
 
             println!();
         }
+    }
+
+    //  ____       _                   ___        __
+    // |  _ \  ___| |__  _   _  __ _  |_ _|_ __  / _| ___  ___
+    // | | | |/ _ \ '_ \| | | |/ _` |  | || '_ \| |_ / _ \/ __|
+    // | |_| |  __/ |_) | |_| | (_| |  | || | | |  _| (_) \__ \
+    // |____/ \___|_.__/ \__,_|\__, | |___|_| |_|_|  \___/|___/
+    //                         |___/
+
+    if debug_infos {
+        eprintln!("===== Debug Infos =====");
+        eprintln!(" - Levels count: {}", compiled_matches.get_nb_levels());
     }
 }

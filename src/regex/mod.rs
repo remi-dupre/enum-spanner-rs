@@ -29,15 +29,33 @@ pub fn compile_matches<'t>(automaton: Automaton, text: &'t str) -> mapping::Inde
 /// the old regex, except if the input regex contains anchors at its begining or
 /// end.
 fn reformat(regex: &str) -> String {
-    let regex = match regex.as_bytes().first() {
-        Some(c) if *c == b'^' => format!("(?P<match>{}", &regex[1..]),
-        _ => format!(r"(.|\s)*(?P<match>{}", regex),
-    };
+    let mut regex = String::from(regex);
 
-    let regex = match regex.as_bytes().last() {
-        Some(c) if *c == b'$' => format!("{})", &regex[..regex.len() - 1]),
-        _ => format!(r"{})(.|\s)*", regex),
-    };
+    let anchor_begin = Some(&b'^') == regex.as_bytes().first();
+    let anchor_end = Some(&b'$') == regex.as_bytes().last();
+
+    // Remove anchor characters
+    if anchor_begin {
+        regex.remove(0);
+    }
+
+    if anchor_end {
+        regex.remove(regex.len() - 1);
+    }
+
+    // TODO: add a group only when necessary.
+    //       The simplest way may still be to properly handle anchors and add the
+    //       group to the regex's AST.
+    regex = format!(r"(?P<match>{})", regex);
+
+    // If there is no prefix anchor, allow any prefix and suffix
+    if !anchor_begin {
+        regex = format!(r"(.|\s)*{}", regex);
+    }
+
+    if !anchor_end {
+        regex = format!(r"{}(.|\s)*", regex);
+    }
 
     regex
 }
