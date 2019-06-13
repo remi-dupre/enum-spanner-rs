@@ -14,9 +14,10 @@ pub fn compile(regex: &str) -> Automaton {
 pub fn is_match(regex: &str, text: &str) -> bool {
     let automaton = compile(&regex);
     let matches = compile_matches(automaton, text);
-    matches.iter().next().is_some()
-}
 
+    let ret = matches.iter().next().is_some();
+    ret
+}
 pub fn compile_matches<'t>(automaton: Automaton, text: &'t str) -> mapping::IndexedDag<'t> {
     mapping::IndexedDag::compile(automaton, text)
 }
