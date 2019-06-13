@@ -4,9 +4,69 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs::File;
 use std::io::prelude::*;
+use std::ops::Index;
 use std::rc::Rc;
 
 use super::mapping::Marker;
+
+//  ____  _        _
+// / ___|| |_ __ _| |_ ___
+// \___ \| __/ _` | __/ _ \
+//  ___) | || (_| | ||  __/
+// |____/ \__\__,_|\__\___|
+//
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+struct State(usize);
+
+impl State {
+    pub fn id(self) -> usize {
+        self.0
+    }
+}
+
+impl Into<usize> for State {
+    fn into(self) -> usize {
+        self.id()
+    }
+}
+
+impl fmt::Display for State {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "q{}", self.id())
+    }
+}
+
+//  _          _          _
+// | |    __ _| |__   ___| |
+// | |   / _` | '_ \ / _ \ |
+// | |__| (_| | |_) |  __/ |
+// |_____\__,_|_.__/ \___|_|
+//
+
+#[derive(Debug)]
+pub enum Label {
+    Atom(atom::Atom),
+    Assignation(Marker),
+}
+
+impl Label {
+    pub fn get_marker(&self) -> Result<&Marker, &str> {
+        match self {
+            Label::Assignation(marker) => Ok(marker),
+            Label::Atom(_) => Err("Can't get a marker out of an atom label."),
+        }
+    }
+}
+
+impl fmt::Display for Label {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Label::Assignation(marker) => write!(f, "{}", marker),
+            Label::Atom(atom) => write!(f, "{}", atom),
+        }
+    }
+}
 
 //     _         _                        _
 //    / \  _   _| |_ ___  _ __ ___   __ _| |_ ___  _ __
@@ -17,32 +77,32 @@ use super::mapping::Marker;
 #[derive(Clone, Debug)]
 pub struct Automaton {
     pub nb_states:   usize,
-    pub transitions: Vec<(usize, Rc<Label>, usize)>,
-    pub finals:      HashSet<usize>,
+    pub transitions: Vec<(State, Rc<Label>, State)>,
+    pub finals:      HashSet<State>,
 
     // Redundant caching structures
-    adj: Vec<Vec<(Rc<Label>, usize)>>,
+    adj: Adjacency,
     adj_for_char: HashMap<char, Vec<Vec<usize>>>,
-    assignations: Vec<Vec<(Rc<Label>, usize)>>,
-    rev_assignations: Vec<Vec<(Rc<Label>, usize)>>,
-    closure_for_assignations: Vec<Vec<usize>>,
+    assignations: Adjacency,
+    rev_assignations: Adjacency,
+    closure_for_assignations: Vec<Vec<State>>,
 }
 
 impl Automaton {
     pub fn new<T, U>(nb_states: usize, transitions: T, finals: U) -> Automaton
     where
-        T: Iterator<Item = (usize, Rc<Label>, usize)>,
-        U: Iterator<Item = usize>,
+        T: Iterator<Item = (State, Rc<Label>, State)>,
+        U: Iterator<Item = State>,
     {
         let mut automaton = Automaton {
             nb_states,
             transitions: transitions.collect(),
             finals: finals.collect(),
 
-            adj: Vec::new(),
+            adj: Adjacency::new(),
             adj_for_char: HashMap::new(),
-            assignations: Vec::new(),
-            rev_assignations: Vec::new(),
+            assignations: Adjacency::new(),
+            rev_assignations: Adjacency::new(),
             closure_for_assignations: Vec::new(),
         };
 
@@ -62,7 +122,7 @@ impl Automaton {
         self.nb_states
     }
 
-    pub fn get_adj(&self) -> &Vec<Vec<(Rc<Label>, usize)>> {
+    pub fn get_adj(&self) -> &Adjacency {
         &self.adj
     }
 
@@ -76,10 +136,10 @@ impl Automaton {
         adj_for_char.entry(x).or_insert_with(|| {
             let mut res = vec![Vec::new(); nb_states];
 
-            for (source, label, target) in transitions {
-                if let Label::Atom(atom) = &**label {
+            for &(source, label, target) in transitions {
+                if let Label::Atom(atom) = *label {
                     if atom.is_match(&x) {
-                        res[*source].push(*target);
+                        res[source.id()].push(target.id());
                     }
                 }
             }
@@ -90,19 +150,19 @@ impl Automaton {
 
     /// Get adjacency lists labeled with the corresponding marker for
     /// transitions labeled with an assignation.
-    pub fn get_assignations(&self) -> &Vec<Vec<(Rc<Label>, usize)>> {
+    pub fn get_assignations(&self) -> &Adjacency {
         &self.assignations
     }
 
     /// Get the reverse of assignations as defined in
     /// `Automata::get_assignations`.
-    pub fn get_rev_assignations(&self) -> &Vec<Vec<(Rc<Label>, usize)>> {
+    pub fn get_rev_assignations(&self) -> &Adjacency {
         &self.rev_assignations
     }
 
     /// Get the closure as adjacency lists for transitions labeled with an
     /// assignation.
-    pub fn get_closure_for_assignations(&self) -> &Vec<Vec<usize>> {
+    pub fn get_closure_for_assignations(&self) -> &Vec<Vec<State>> {
         &self.closure_for_assignations
     }
 
@@ -141,60 +201,60 @@ impl Automaton {
         Ok(())
     }
 
-    fn init_adj(&self) -> Vec<Vec<(Rc<Label>, usize)>> {
+    fn init_adj(&self) -> Adjacency {
         let mut ret = vec![Vec::new(); self.nb_states];
 
         for (source, label, target) in &self.transitions {
-            ret[*source].push((label.clone(), *target));
+            ret[source.id()].push((label.clone(), *target));
         }
 
-        ret
+        Adjacency(ret)
     }
 
-    fn init_assignations(&self) -> Vec<Vec<(Rc<Label>, usize)>> {
+    fn init_assignations(&self) -> Adjacency {
         // Compute adjacency list
         let mut adj = vec![Vec::new(); self.get_nb_states()];
 
         for (source, label, target) in &self.transitions {
             if let Label::Assignation(_) = **label {
-                adj[*source].push((label.clone(), *target))
+                adj[source.id()].push((label.clone(), *target))
             }
         }
 
-        adj
+        Adjacency(adj)
     }
 
-    fn init_rev_assignations(&self) -> Vec<Vec<(Rc<Label>, usize)>> {
+    fn init_rev_assignations(&self) -> Adjacency {
         // Compute adjacency list
         let mut adj = vec![Vec::new(); self.get_nb_states()];
 
         for (source, label, target) in &self.transitions {
             if let Label::Assignation(_) = **label {
-                adj[*target].push((label.clone(), *source))
+                adj[target.id()].push((label.clone(), *source))
             }
         }
 
-        adj
+        Adjacency(adj)
     }
 
-    fn init_closure_for_assignations(&self) -> Vec<Vec<usize>> {
+    fn init_closure_for_assignations(&self) -> Vec<Vec<State>> {
         // Compute adjacency list
         let assignations = self.get_assignations();
-        let adj: Vec<Vec<usize>> = (0..self.get_nb_states())
-            .map(|i| assignations[i].iter().map(|(_, j)| *j).collect())
+        let adj: Vec<Vec<State>> = (0..self.get_nb_states())
+            .map(|i| assignations[State(i)].iter().map(|(_, j)| *j).collect())
             .collect();
 
         // Compute closure
         let mut closure = vec![Vec::new(); self.get_nb_states()];
 
-        for state in 0..self.get_nb_states() {
+        for state in (0..self.get_nb_states()).map(State) {
             let mut heap = vec![state];
             let mut seen = HashSet::new();
             seen.insert(state);
 
             while let Some(source) = heap.pop() {
-                for target in &adj[source] {
-                    closure[state].push(*target);
+                for target in &adj[source.id()] {
+                    closure[state.id()].push(*target);
 
                     if !seen.contains(target) {
                         heap.push(*target);
@@ -208,33 +268,26 @@ impl Automaton {
     }
 }
 
-//  _          _          _
-// | |    __ _| |__   ___| |
-// | |   / _` | '_ \ / _ \ |
-// | |__| (_| | |_) |  __/ |
-// |_____\__,_|_.__/ \___|_|
-//
+//     _       _  _
+//    / \   __| |(_) __ _  ___ ___ _ __   ___ _   _
+//   / _ \ / _` || |/ _` |/ __/ _ \ '_ \ / __| | | |
+//  / ___ \ (_| || | (_| | (_|  __/ | | | (__| |_| |
+// /_/   \_\__,_|/ |\__,_|\___\___|_| |_|\___|\__, |
+//             |__/                           |___/
 
-#[derive(Debug)]
-pub enum Label {
-    Atom(atom::Atom),
-    Assignation(Marker),
-}
+#[derive(Clone, Debug)]
+struct Adjacency(Vec<Vec<(Rc<Label>, State)>>);
 
-impl Label {
-    pub fn get_marker(&self) -> Result<&Marker, &str> {
-        match self {
-            Label::Assignation(marker) => Ok(marker),
-            Label::Atom(_) => Err("Can't get a marker out of an atom label."),
-        }
+impl Adjacency {
+    fn new() -> Adjacency {
+        Adjacency(Vec::new())
     }
 }
 
-impl fmt::Display for Label {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Label::Assignation(marker) => write!(f, "{}", marker),
-            Label::Atom(atom) => write!(f, "{}", atom),
-        }
+impl Index<State> for Adjacency {
+    type Output = Vec<(Rc<Label>, State)>;
+
+    fn index(&self, state: State) -> &Vec<(Rc<Label>, State)> {
+        &self.0[state.id()]
     }
 }

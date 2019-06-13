@@ -13,7 +13,7 @@ use super::levelset::LevelSet;
 /// inside of a level, made of 'assignation edges'. The goal of the structure is
 /// to be able to be able to navigate quickly from the last to the first layer
 /// by being able to skip any path that do not contain any assignation edges.
-pub struct Jump {
+pub struct Jump<T> {
     /// Represent levels in the levelset, which will be built on top of one
     /// another.
     levelset: LevelSet,
@@ -23,12 +23,12 @@ pub struct Jump {
     /// Set of vertices that can't be jumped since it has an ingoing
     /// non-jumpable edge. NOTE: it may only be required to store it for the
     /// last level.
-    nonjump_vertices: HashSet<(usize, usize)>,
+    nonjump_vertices: HashSet<(usize, T)>,
     /// Keep track of number of jumps to a given vertex.
-    count_ingoing_jumps: HashMap<(usize, usize), usize>,
+    count_ingoing_jumps: HashMap<(usize, T), usize>,
 
     /// Closest level where an assignation is done accessible from any node.
-    jl: HashMap<(usize, usize), usize>,
+    jl: HashMap<(usize, T), usize>,
     /// Set of levels accessible from any level using `jl`.
     rlevel: HashMap<usize, HashSet<usize>>,
     /// Reverse of `rlevel`.
@@ -39,10 +39,10 @@ pub struct Jump {
     reach: HashMap<(usize, usize), Matrix<bool>>,
 }
 
-impl Jump {
-    pub fn new<T>(initial_level: T, nonjump_adj: &Vec<Vec<usize>>) -> Jump
+impl<T> Jump<T> {
+    pub fn new<U>(initial_level: U, nonjump_adj: &Vec<Vec<usize>>) -> Jump<T>
     where
-        T: Iterator<Item = usize>,
+        U: Iterator<Item = usize>,
     {
         let mut jump = Jump {
             levelset:            LevelSet::new(),
@@ -457,7 +457,7 @@ impl Jump {
     }
 }
 
-impl fmt::Debug for Jump {
+impl<T> fmt::Debug for Jump<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for ((sublevel, level), adj) in &self.reach {
             write!(

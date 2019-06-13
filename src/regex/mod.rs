@@ -18,6 +18,7 @@ pub fn is_match(regex: &str, text: &str) -> bool {
     let ret = matches.iter().next().is_some();
     ret
 }
+
 pub fn compile_matches<'t>(automaton: Automaton, text: &'t str) -> mapping::IndexedDag<'t> {
     mapping::IndexedDag::compile(automaton, text)
 }
@@ -41,7 +42,7 @@ fn reformat(regex: &str) -> String {
         regex.remove(regex.len() - 1);
     }
 
-    // TODO: add a group only when necessary.
+    // TODO: Add a group only when necessary.
     //       The simplest way may still be to properly handle anchors and add the
     //       group to the regex's AST.
     regex = format!(r"(?P<match>{})", regex);
