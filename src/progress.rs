@@ -1,5 +1,7 @@
 use std::cmp;
 use std::convert::TryInto;
+use std::io;
+use std::io::Write;
 use std::iter;
 use std::str;
 use std::time;
@@ -35,22 +37,38 @@ where
     max_iterations: usize,
     /// Number of elements already extracted
     count_iterations: usize,
-    /// Purely estetic looping animation
-    spinner: iter::Cycle<str::Chars<'static>>,
 
     /// Creation instant of the progress bar
     start_time: time::Instant,
+
+    /// Wether the bar should automaticaly refresh while iterating it
+    auto_refresh: bool,
 
     /// Last refresh instant
     last_refresh: time::Instant,
     /// Width of the bar during the previous refresh
     last_width: usize,
+
+    /// Extra infos to display during loading
+    extra_msg: Option<String>,
+
+    /// Purely estetic looping animation
+    spinner: iter::Cycle<str::Chars<'static>>,
 }
 
 impl<T, U> Progress<T, U>
 where
     T: Iterator<Item = U>,
 {
+    pub fn auto_refresh(mut self, toggle: bool) -> Progress<T, U> {
+        self.auto_refresh = toggle;
+        self
+    }
+
+    pub fn extra_msg(&mut self, msg: String) {
+        self.extra_msg = Some(msg);
+    }
+
     pub fn refresh(&mut self) {
         // Compute bar shape
         let proportion = self.count_iterations as f64 / self.max_iterations as f64;
@@ -83,8 +101,8 @@ where
         // Display
         let elapsed = self.start_time.elapsed().as_secs();
 
-        let display = format!(
-            "  {} [{}{}{}]  {:02}:{:02}  {:.2} {}/s",
+        let mut display = format!(
+            "{} [{}{}{}]  {:02}:{:02}  {:.2} {}/s",
             self.spinner.next().unwrap(),
             body,
             head,
@@ -95,11 +113,17 @@ where
             PREFIXES[prefix_index],
         );
 
-        eprint!("\r{}", display);
+        if let Some(msg) = &self.extra_msg {
+            display = format!("{} -- {}", display, msg);
+        }
+
+        print!("\r{}", display);
 
         if display.chars().count() < self.last_width {
-            eprint!("{}", " ".repeat(self.last_width - display.chars().count()))
+            print!("{}", " ".repeat(self.last_width - display.chars().count()))
         }
+
+        io::stdout().flush().expect("Can't flush stdout");
 
         // Update informations about last refresh
         self.last_refresh = time::Instant::now();
@@ -117,18 +141,17 @@ where
             .try_into()
             .expect("Impossible to init progress bar for objects larger than a 64 bits integer");
 
-        let mut progress = Progress {
+        Progress {
             iterator,
             max_iterations,
             count_iterations: 0,
             start_time: time::Instant::now(),
-            spinner: SPINNER.chars().cycle(),
+            auto_refresh: true,
             last_refresh: time::Instant::now(),
             last_width: 0,
-        };
-
-        progress.refresh();
-        progress
+            extra_msg: None,
+            spinner: SPINNER.chars().cycle(),
+        }
     }
 }
 
@@ -141,14 +164,16 @@ where
     fn next(&mut self) -> Option<U> {
         let ret = self.iterator.next();
 
-        match ret {
-            None => {
-                self.refresh();
-                eprint!("\n");
-            }
-            Some(_) => {
-                if self.last_refresh.elapsed().as_millis() > REFRESH_DELAY {
+        if self.auto_refresh {
+            match ret {
+                None => {
                     self.refresh();
+                    print!("\n");
+                }
+                Some(_) => {
+                    if self.last_refresh.elapsed().as_millis() > REFRESH_DELAY {
+                        self.refresh();
+                    }
                 }
             }
         }

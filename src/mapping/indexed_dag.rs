@@ -24,9 +24,19 @@ pub struct IndexedDag<'t> {
     jump:      Jump,
 }
 
+#[derive(Eq, PartialEq)]
+pub enum ToggleProgress {
+    Enabled,
+    Disabled,
+}
+
 impl<'t> IndexedDag<'t> {
     /// Compute the index of matches of an automaton over input text.
-    pub fn compile(mut automaton: Automaton, text: &str) -> IndexedDag {
+    pub fn compile(
+        mut automaton: Automaton,
+        text: &str,
+        toggle_progress: ToggleProgress,
+    ) -> IndexedDag {
         let mut jump = Jump::new(
             iter::once(automaton.get_initial()),
             automaton.get_closure_for_assignations(),
@@ -35,21 +45,29 @@ impl<'t> IndexedDag<'t> {
         let closure_for_assignations = automaton.get_closure_for_assignations().clone();
 
         let chars: Vec<_> = text.chars().collect();
-        let progress = Progress::from_iter(chars.into_iter());
+        let mut progress = Progress::from_iter(chars.into_iter())
+            .auto_refresh(toggle_progress == ToggleProgress::Enabled);
+        let mut curr_level = 0;
 
-        for (curr_level, curr_char) in progress.enumerate() {
+        while let Some(curr_char) = progress.next() {
             let adj_for_char = automaton.get_adj_for_char(curr_char);
             jump.init_next_level(adj_for_char, &closure_for_assignations);
+            progress.extra_msg(format!("{} levels", jump.get_nb_levels()));
 
             // Clean levels at exponential depth
             if curr_level > 0 {
-                // TODO: this is not as "fancy" as a `x & -x`
-                let depth = (2 as usize).pow(curr_level.trailing_zeros());
+                // Highest power of two that divides current level
+                let depth = {
+                    let curr_level = curr_level as i128;
+                    (curr_level & -curr_level) as usize
+                };
 
                 for level in ((curr_level - depth + 1)..=curr_level).rev() {
                     jump.clean_level(level, &closure_for_assignations);
                 }
             }
+
+            curr_level += 1;
 
             if jump.is_disconnected() {
                 break;
@@ -75,7 +93,7 @@ impl<'t> IndexedDag<'t> {
         let adj = self.automaton.get_rev_assignations();
 
         // Get list of variables that are part of the level.
-        // TODO: It might still be slower to just using the list of all variables in the
+        // UODO: It might still be slower to just using the list of all variables in the
         // automaton?
         let mut k = HashSet::new();
         let mut stack = gamma.clone();
@@ -263,7 +281,7 @@ impl<'a> NextLevelIterator<'a> {
             |set1: &HashSet<_>, set2: &HashSet<_>| !set1.is_subset(&set2) && !set2.is_subset(&set1);
 
         // TODO: Consider writing this as a recursive function?
-        let mut queue: VecDeque<_> = gamma.iter().map(|x| *x).collect();
+        let mut queue: VecDeque<_> = gamma.iter().cloned().collect();
 
         while let Some(source) = queue.pop_front() {
             for (label, target) in &adj[source] {

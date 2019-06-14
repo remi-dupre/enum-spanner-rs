@@ -19,7 +19,22 @@ pub fn is_match(regex: &str, text: &str) -> bool {
     ret
 }
 pub fn compile_matches<'t>(automaton: Automaton, text: &'t str) -> mapping::IndexedDag<'t> {
-    mapping::IndexedDag::compile(automaton, text)
+    mapping::IndexedDag::compile(
+        automaton,
+        text,
+        mapping::indexed_dag::ToggleProgress::Disabled,
+    )
+}
+
+pub fn compile_matches_progress<'t>(
+    automaton: Automaton,
+    text: &'t str,
+) -> mapping::IndexedDag<'t> {
+    mapping::IndexedDag::compile(
+        automaton,
+        text,
+        mapping::indexed_dag::ToggleProgress::Enabled,
+    )
 }
 
 /// Reformat the regex to get a regex matching the whole regex in a group called
