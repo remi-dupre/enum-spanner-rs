@@ -435,6 +435,7 @@ impl Jump {
             }
 
             for &sublevel in &self.rlevel[&level] {
+                self.reach.remove(&(sublevel, level));
                 self.rev_rlevel.get_mut(&sublevel).unwrap().remove(&level);
             }
 
