@@ -117,10 +117,10 @@ where
             display = format!("{} -- {}", display, msg);
         }
 
-        print!("\r{}", display);
+        eprint!("\r{}", display);
 
         if display.chars().count() < self.last_width {
-            print!("{}", " ".repeat(self.last_width - display.chars().count()))
+            eprint!("{}", " ".repeat(self.last_width - display.chars().count()))
         }
 
         io::stdout().flush().expect("Can't flush stdout");

@@ -279,7 +279,7 @@ impl Jump {
             count_ingoing_jumps.insert((level, vertex), 0);
         }
 
-        // Update Jump counters previous level
+        // Update Jump counters to previous levels
         for &sublevel in &rlevel[&level] {
             let adjacency = &reach[&(sublevel, level)];
 
@@ -386,7 +386,31 @@ impl Jump {
         // Update jump counters to sublevels, if a sublevel is removed from rlevel, then
         // we need to remove jump pointers from any vertex of the level, overwise only
         // from removed vertices.
-        for &sublevel in &self.rlevel[&level] {
+
+        let new_rlevel: HashSet<_> = curr_level
+            .iter()
+            .filter_map(|&vertex| self.jl.get(&(level, vertex)).cloned())
+            .collect();
+
+        for &sublevel in self.rlevel[&level].difference(&new_rlevel) {
+            for &vertex in self.levelset.get_level(sublevel).unwrap() {
+                let adjacency = &self.reach[&(sublevel, level)];
+                let vertex_index = self.levelset.get_vertex_index(sublevel, vertex).unwrap();
+                let nb_removed: usize = adjacency
+                    .iter_row(vertex_index)
+                    .map(|&val| if val { 1 } else { 0 })
+                    .sum();
+
+                if nb_removed > 0 {
+                    *self
+                        .count_ingoing_jumps
+                        .get_mut(&(sublevel, vertex))
+                        .unwrap() -= nb_removed;
+                }
+            }
+        }
+
+        for &sublevel in &new_rlevel {
             for &vertex in self.levelset.get_level(sublevel).unwrap() {
                 let adjacency = &self.reach[&(sublevel, level)];
                 let vertex_index = self.levelset.get_vertex_index(sublevel, vertex).unwrap();
@@ -417,12 +441,6 @@ impl Jump {
             self.rlevel.remove(&level);
             self.rev_rlevel.remove(&level);
         } else {
-            // Update rlevel
-            let new_rlevel: HashSet<_> = curr_level
-                .iter()
-                .filter_map(|&vertex| self.jl.get(&(level, vertex)).cloned())
-                .collect();
-
             // Remove deprecated links in reach and rlevel
             for &sublevel in self.rlevel[&level].difference(&new_rlevel) {
                 self.rev_rlevel.get_mut(&sublevel).unwrap().remove(&level);
@@ -459,18 +477,8 @@ impl Jump {
 
 impl fmt::Debug for Jump {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for ((sublevel, level), adj) in &self.reach {
-            write!(
-                f,
-                "-----\n{} <- {}:\n{}: {:?}\n{}: {:?}\n{:?}",
-                sublevel,
-                level,
-                sublevel,
-                self.levelset.get_level(*sublevel),
-                level,
-                self.levelset.get_level(*level),
-                adj
-            )?;
+        for ((level, vertex), count) in self.count_ingoing_jumps.iter() {
+            write!(f, "{} at level {}: {} ingoing jumps", vertex, level, count)?;
         }
 
         Ok(())

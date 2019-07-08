@@ -30,7 +30,9 @@ pub enum Hir {
 
 impl Hir {
     pub fn from_regex(regex: &str) -> Hir {
-        let lib_hir = regex_syntax::Parser::new().parse(regex).unwrap();
+        let lib_hir = regex_syntax::Parser::new()
+            .parse(regex)
+            .expect("Invalid regexp syntax");
         let (_, hir) = Hir::from_lib_hir(lib_hir, 0);
         hir
     }
