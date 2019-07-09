@@ -6,6 +6,33 @@ use std::iter;
 use super::super::matrix::Matrix;
 use super::levelset::LevelSet;
 
+//  ____                                _
+// |  _ \ __ _ _ __ __ _ _ __ ___   ___| |_ ___ _ __ ___
+// | |_) / _` | '__/ _` | '_ ` _ \ / _ \ __/ _ \ '__/ __|
+// |  __/ (_| | | | (_| | | | | | |  __/ ||  __/ |  \__ \
+// |_|   \__,_|_|  \__,_|_| |_| |_|\___|\__\___|_|  |___/
+//
+
+/// Define wether the matrices should be computed during the precomputing.
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum MatrixPolicy {
+    Lazy,
+    Precompute,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum CleanPolicy {
+    Clean,
+    Skip,
+}
+
+//      _
+//     | |_   _ _ __ ___  _ __
+//  _  | | | | | '_ ` _ \| '_ \
+// | |_| | |_| | | | | | | |_) |
+//  \___/ \__,_|_| |_| |_| .__/
+//                       |_|
+
 /// Generic Jump function inside a product DAG.
 ///
 /// The DAG will be built layer by layer by specifying the adjacency matrix from
@@ -29,14 +56,19 @@ pub struct Jump {
 
     /// Closest level where an assignation is done accessible from any node.
     jl: HashMap<(usize, usize), usize>,
+
     /// Set of levels accessible from any level using `jl`.
     rlevel: HashMap<usize, HashSet<usize>>,
     /// Reverse of `rlevel`.
     rev_rlevel: HashMap<usize, HashSet<usize>>,
     /// For any pair of level `(i, j)` such that i is in the level `rlevel[j]`,
     /// `reach[i, j]` is the accessibility matrix of vertices from level i
-    /// to level j
+    /// to level j.
     reach: HashMap<(usize, usize), Matrix<bool>>,
+
+    /// Various computation parametters
+    matrix_policy: MatrixPolicy,
+    clean_policy: CleanPolicy,
 }
 
 impl Jump {
@@ -53,7 +85,15 @@ impl Jump {
             rlevel:              HashMap::new(),
             rev_rlevel:          HashMap::new(),
             reach:               HashMap::new(),
+            matrix_policy:       MatrixPolicy::Precompute,
+            clean_policy:        CleanPolicy::Clean,
         };
+
+        // TODO: implement cleaning without matrices
+        if jump.matrix_policy == MatrixPolicy::Lazy && jump.clean_policy == CleanPolicy::Clean {
+            eprintln!(r"/!\ Can't clean jump levels without precomputed matrices.");
+            jump.clean_policy = CleanPolicy::Skip;
+        }
 
         jump.rlevel.insert(0, HashSet::new());
         jump.rev_rlevel.insert(0, HashSet::new());
@@ -61,13 +101,19 @@ impl Jump {
         for state in initial_level {
             jump.levelset.register(state, 0);
             jump.jl.insert((0, state), 0);
-            jump.count_ingoing_jumps.insert((0, state), 0);
+
+            if jump.clean_policy == CleanPolicy::Clean {
+                jump.count_ingoing_jumps.insert((0, state), 0);
+            }
         }
 
         // Init first level
         jump.extend_level(0, nonjump_adj);
-        for &vertex in jump.levelset.get_level(0).unwrap() {
-            jump.count_ingoing_jumps.insert((0, vertex), 0);
+
+        if jump.clean_policy == CleanPolicy::Clean {
+            for &vertex in jump.levelset.get_level(0).unwrap() {
+                jump.count_ingoing_jumps.insert((0, vertex), 0);
+            }
         }
 
         jump
@@ -128,7 +174,11 @@ impl Jump {
 
         // NOTE: isn't there a better way of organizing this?
         self.extend_level(next_level, nonjump_adj);
-        self.init_reach(next_level, jump_adj);
+
+        if self.matrix_policy == MatrixPolicy::Precompute {
+            self.init_reach(next_level, jump_adj);
+        }
+
         self.last_level = next_level;
     }
 
@@ -274,23 +324,25 @@ impl Jump {
             reach.remove(&(level - 1, level));
         }
 
-        // Init Jump counters for current level
-        for &vertex in curr_level {
-            count_ingoing_jumps.insert((level, vertex), 0);
-        }
+        if self.clean_policy == CleanPolicy::Clean {
+            // Init Jump counters for current level
+            for &vertex in curr_level {
+                count_ingoing_jumps.insert((level, vertex), 0);
+            }
 
-        // Update Jump counters to previous levels
-        for &sublevel in &rlevel[&level] {
-            let adjacency = &reach[&(sublevel, level)];
+            // Update Jump counters to previous levels
+            for &sublevel in &rlevel[&level] {
+                let adjacency = &reach[&(sublevel, level)];
 
-            for (vertex, vertex_index) in self.levelset.iter_level(sublevel) {
-                let nb_pointers: usize = adjacency
-                    .iter_row(vertex_index)
-                    .map(|&x| if x { 1 } else { 0 })
-                    .sum();
+                for (vertex, vertex_index) in self.levelset.iter_level(sublevel) {
+                    let nb_pointers: usize = adjacency
+                        .iter_row(vertex_index)
+                        .map(|&x| if x { 1 } else { 0 })
+                        .sum();
 
-                if nb_pointers != 0 {
-                    *count_ingoing_jumps.get_mut(&(sublevel, vertex)).unwrap() += nb_pointers;
+                    if nb_pointers != 0 {
+                        *count_ingoing_jumps.get_mut(&(sublevel, vertex)).unwrap() += nb_pointers;
+                    }
                 }
             }
         }
@@ -300,6 +352,10 @@ impl Jump {
     /// from which there is no path of assignation to a node which can be jumped
     /// to.
     pub fn clean_level(&mut self, level: usize, jump_adj: &Vec<Vec<usize>>) -> bool {
+        if self.clean_policy == CleanPolicy::Skip {
+            return false;
+        }
+
         if level == 0 {
             // TODO: fix the reach[(0, 0)] exception
             return false;
@@ -360,18 +416,6 @@ impl Jump {
             .iter()
             .map(|&vertex| self.levelset.get_vertex_index(level, vertex).unwrap())
             .collect();
-
-        for &col in &removed_columns {
-            for &sublevel in &self.rlevel[&level] {
-                assert!(
-                    col < self.reach[&(sublevel, level)].get_width(),
-                    "Index {} inconsistant for {} {}",
-                    col,
-                    sublevel,
-                    level
-                );
-            }
-        }
 
         // Update the levelset and update borrowed value
         self.levelset.remove_from_level(level, &del_vertices);
