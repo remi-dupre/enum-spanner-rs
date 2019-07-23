@@ -7,6 +7,7 @@ mod regex;
 mod tools;
 
 extern crate clap;
+extern crate regex as lib_regex;
 extern crate regex_syntax;
 
 use std::fs::File;
@@ -74,6 +75,18 @@ fn main() {
                 .help("Use a naive algorithm to equivalently print all matches"),
         )
         .arg(
+            Arg::with_name("use_naive_cubic")
+                .long("naive-cubic")
+                .help("Use a naive algorithm to enumerate all subwords that match the input regex. \
+                       This algorithm runs in time O(|text|³ + exp(|regex|))"),
+        )
+        .arg(
+            Arg::with_name("use_naive_quadratic")
+                .long("naive-quadratic")
+                .help("Use a naive algorithm to enumerate all subwords that match the input regex,
+                       This algorithm runs in time O(|regex||text|²)"),
+        )
+        .arg(
             Arg::with_name("debug_infos")
                 .short("i")
                 .long("debug-infos")
@@ -84,11 +97,13 @@ fn main() {
     // Extract parameters
     let benchmark = matches.is_present("benchmark");
     let count = matches.is_present("count");
-    let regex = matches.value_of("regex").unwrap();
+    let regex_str = matches.value_of("regex").unwrap();
     let show_offset = matches.is_present("bytes_offset");
     let compare_format = matches.is_present("compare");
 
     let use_naive = matches.is_present("use_naive");
+    let use_naive_cubic = matches.is_present("use_naive_cubic");
+    let use_naive_quadratic = matches.is_present("use_naive_quadratic");
 
     let debug_infos = matches.is_present("debug_infos");
 
@@ -139,7 +154,7 @@ fn main() {
     // |_|  |_|\__,_|\__\___|_| |_|
     //
 
-    let regex = regex::compile(regex);
+    let regex = regex::compile(regex_str);
     regex
         .render("automaton.dot")
         .expect("Could not create the dotfile.");
@@ -200,6 +215,20 @@ fn main() {
     if use_naive {
         handle_matches(
             mapping::naive::NaiveEnum::new(&regex, &text),
+            &text,
+            &timer,
+            display_format,
+        );
+    } else if use_naive_cubic {
+        handle_matches(
+            regex::naive::NaiveEnumCubic::new(regex_str, &text).unwrap(),
+            &text,
+            &timer,
+            display_format,
+        );
+    } else if use_naive_quadratic {
+        handle_matches(
+            regex::naive::NaiveEnumQuadratic::new(regex_str, &text),
             &text,
             &timer,
             display_format,

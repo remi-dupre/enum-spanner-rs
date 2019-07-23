@@ -1,3 +1,5 @@
+pub mod naive;
+
 mod glushkov;
 mod parse;
 
@@ -6,6 +8,11 @@ use super::mapping;
 
 pub fn compile(regex: &str) -> Automaton {
     let regex = reformat(regex);
+    let hir = parse::Hir::from_regex(&regex);
+    glushkov::LocalLang::from_hir(hir, 0).into_automaton()
+}
+
+pub fn compile_raw(regex: &str) -> Automaton {
     let hir = parse::Hir::from_regex(&regex);
     glushkov::LocalLang::from_hir(hir, 0).into_automaton()
 }

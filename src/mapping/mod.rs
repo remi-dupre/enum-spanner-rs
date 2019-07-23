@@ -51,6 +51,14 @@ impl<'t> Mapping<'t> {
             .map(move |(key, range)| (key.get_name(), &self.text[range.clone()]))
     }
 
+    /// Return a canonical mapping for a classic semantic with no group, which
+    /// will assign the whole match to a group called "match".
+    pub fn from_single_match(text: &'t str, range: Range<usize>) -> Mapping<'t> {
+        let mut maps = HashMap::new();
+        maps.insert(Variable::new("match".to_string(), 0), range);
+        Mapping { text, maps }
+    }
+
     pub fn from_markers<T>(text: &'t str, marker_assigns: T) -> Mapping<'t>
     where
         T: Iterator<Item = (Marker, usize)>,
