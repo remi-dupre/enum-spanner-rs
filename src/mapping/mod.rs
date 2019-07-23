@@ -1,6 +1,4 @@
 pub mod indexed_dag;
-
-#[cfg(test)]
 pub mod naive;
 
 mod jump;
@@ -23,7 +21,7 @@ pub use indexed_dag::IndexedDag;
 //              |_|   |_|            |___/
 
 /// Map a set of variables to spans [i, i'> over a text.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Mapping<'t> {
     text: &'t str,
     maps: HashMap<Variable, Range<usize>>,

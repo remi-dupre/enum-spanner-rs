@@ -52,23 +52,27 @@ fn main() {
                 .help("The file to be read, if none is specified, STDIN is used."),
         )
         .arg(
-            Arg::with_name("bytes_offset")
-                .short("b")
-                .long("bytes-offset")
-                .help("Print the 0-based offset of each matching part and groups."),
-        )
-        .arg(
             Arg::with_name("count")
                 .short("c")
                 .long("count")
                 .help("Display the number of matches instead."),
         )
         .arg(
-            Arg::with_name("compare")
-            .long("compare")
-            .help("Output matches in a format suitable with re-compare: \
-                   https://github.com/gchase/re-compare")
-            )
+            Arg::with_name("bytes_offset")
+                .short("b")
+                .long("bytes-offset")
+                .help("Print the 0-based offset of each matching part and groups."),
+        )
+        .arg(Arg::with_name("compare")
+                .long("compare")
+                .help("Output matches in a format suitable with re-compare: \
+                       https://github.com/gchase/re-compare")
+        )
+        .arg(
+            Arg::with_name("use_naive")
+                .long("naive")
+                .help("Use a naive algorithm to equivalently print all matches"),
+        )
         .arg(
             Arg::with_name("debug_infos")
                 .short("i")
@@ -83,6 +87,9 @@ fn main() {
     let regex = matches.value_of("regex").unwrap();
     let show_offset = matches.is_present("bytes_offset");
     let compare_format = matches.is_present("compare");
+
+    let use_naive = matches.is_present("use_naive");
+
     let debug_infos = matches.is_present("debug_infos");
 
     let display_format = match (count, compare_format, show_offset) {
@@ -190,8 +197,21 @@ fn main() {
         }
     }
 
-    let compiled_matches = regex::compile_matches_progress(regex, &text);
-    handle_matches(compiled_matches.iter(), &text, &timer, display_format);
+    if use_naive {
+        handle_matches(
+            mapping::naive::NaiveEnum::new(&regex, &text),
+            &text,
+            &timer,
+            display_format,
+        );
+    } else {
+        handle_matches(
+            regex::compile_matches_progress(regex, &text).iter(),
+            &text,
+            &timer,
+            display_format,
+        );
+    }
 
     //  ____       _                   ___        __
     // |  _ \  ___| |__  _   _  __ _  |_ _|_ __  / _| ___  ___
@@ -202,6 +222,6 @@ fn main() {
 
     if debug_infos {
         eprintln!("===== Debug Infos =====");
-        eprintln!(" - Levels count: {}", compiled_matches.get_nb_levels());
+        // eprintln!(" - Levels count: {}", compiled_matches.get_nb_levels());
     }
 }

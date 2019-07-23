@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::str::CharIndices;
 
 use super::super::automaton::{Automaton, Label};
@@ -9,13 +10,16 @@ use super::{Mapping, Marker};
 /// are distincts. **
 pub struct NaiveEnum<'a, 't> {
     automaton: &'a Automaton,
-    text: &'t str,
+    text:      &'t str,
 
     /// Holds current positions of the runs as a stack of:
     ///  - current state on the automata
     ///  - current index on the word
     ///  - assignations that have been done so far
     curr_state: Vec<(usize, CharIndices<'t>, Vec<(&'a Marker, usize)>)>,
+
+    /// Keep track of already outputed values
+    curr_output: HashSet<Mapping<'t>>,
 }
 
 impl<'a, 't> NaiveEnum<'a, 't> {
@@ -24,6 +28,7 @@ impl<'a, 't> NaiveEnum<'a, 't> {
             automaton,
             text,
             curr_state: vec![(0, text.char_indices(), Vec::new())],
+            curr_output: HashSet::new(),
         }
     }
 }
@@ -62,12 +67,17 @@ impl<'a, 't> Iterator for NaiveEnum<'a, 't> {
             }
 
             if curr_char == None && self.automaton.finals.contains(&state) {
-                return Some(Mapping::from_markers(
+                let mapping = Mapping::from_markers(
                     self.text,
                     assigns
                         .into_iter()
                         .map(|(marker, pos)| (marker.clone(), pos)),
-                ));
+                );
+
+                if !self.curr_output.contains(&mapping) {
+                    self.curr_output.insert(mapping.clone());
+                    return Some(mapping);
+                }
             }
         }
 
