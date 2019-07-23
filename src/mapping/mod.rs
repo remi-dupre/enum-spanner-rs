@@ -6,7 +6,7 @@ pub mod naive;
 mod jump;
 mod levelset;
 
-use std::cmp::Ord;
+use std::cmp;
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -30,6 +30,17 @@ pub struct Mapping<'t> {
 }
 
 impl<'t> Mapping<'t> {
+    /// Returns a span that contains the whole matching area
+    pub fn main_span(&self) -> Option<Range<usize>> {
+        self.maps.values().fold(None, |acc, range| match acc {
+            None => Some(range.clone()),
+            Some(acc_range) => Some(Range {
+                start: cmp::min(range.start, acc_range.start),
+                end:   cmp::max(range.end, acc_range.end),
+            }),
+        })
+    }
+
     pub fn iter_groups(&self) -> impl Iterator<Item = (&str, Range<usize>)> {
         self.maps
             .iter()
@@ -122,7 +133,7 @@ impl<'t> fmt::Display for Mapping<'t> {
 
 #[derive(Clone, Debug, PartialOrd, Ord)]
 pub struct Variable {
-    id: u64,
+    id:   u64,
     name: String,
 }
 

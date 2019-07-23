@@ -12,8 +12,19 @@ extern crate regex_syntax;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{stdin, stdout};
+use std::time;
 
 use clap::{App, Arg};
+
+#[derive(PartialEq, Eq)]
+enum DisplayFormat {
+    /// Only display the count of matches
+    Count,
+    /// Display in the re-compare format: https://github.com/gchase/re-compare
+    CompareFormat,
+    /// Human-readable format
+    Verbose { show_offset: bool },
+}
 
 fn main() {
     //  ____
@@ -53,6 +64,12 @@ fn main() {
                 .help("Display the number of matches instead."),
         )
         .arg(
+            Arg::with_name("compare")
+            .long("compare")
+            .help("Output matches in a format suitable with re-compare: \
+                   https://github.com/gchase/re-compare")
+            )
+        .arg(
             Arg::with_name("debug_infos")
                 .short("i")
                 .long("debug-infos")
@@ -65,7 +82,14 @@ fn main() {
     let count = matches.is_present("count");
     let regex = matches.value_of("regex").unwrap();
     let show_offset = matches.is_present("bytes_offset");
+    let compare_format = matches.is_present("compare");
     let debug_infos = matches.is_present("debug_infos");
+
+    let display_format = match (count, compare_format, show_offset) {
+        (true, _, _) => DisplayFormat::Count,
+        (_, true, _) => DisplayFormat::CompareFormat,
+        _ => DisplayFormat::Verbose { show_offset },
+    };
 
     //  ____                  _                          _
     // | __ )  ___ _ __   ___| |__  _ __ ___   __ _ _ __| | __
@@ -113,28 +137,61 @@ fn main() {
         .render("automaton.dot")
         .expect("Could not create the dotfile.");
 
-    let compiled_matches = regex::compile_matches_progress(regex, &text);
+    let timer = time::Instant::now();
 
-    if count {
-        let count = compiled_matches.iter().count();
-        println!("{}", count)
-    } else {
-        for (count, mapping) in compiled_matches.iter().enumerate() {
-            print!("{} -", count + 1);
+    fn handle_matches<'t>(
+        matches: impl Iterator<Item = mapping::Mapping<'t>>,
+        text: &str,
+        timer: &time::Instant,
+        display_format: DisplayFormat,
+    ) {
+        match display_format {
+            DisplayFormat::Count => {
+                let count = matches.count();
+                println!("{}", count)
+            }
+            DisplayFormat::CompareFormat => {
+                for mapping in matches {
+                    let span = mapping
+                        .main_span()
+                        .expect("A mapping should never be empty");
 
-            if show_offset {
-                for (name, range) in mapping.iter_groups() {
-                    print!(" {}:{},{}", name, range.start, range.end);
+                    println!(
+                        r#">>>>{{"match": {:?}, "span": [{},{}], "time": {}}}"#,
+                        &text[span.clone()],
+                        span.start,
+                        span.end,
+                        timer.elapsed().as_millis()
+                    )
                 }
-            } else {
-                for (name, text) in mapping.iter_groups_text() {
-                    print!(" {}:{:?}", name, text);
+
+                println!(
+                    r#">>>>{{"match": "EOF", "span": [-1,-1], "time": {}}}"#,
+                    timer.elapsed().as_millis()
+                );
+            }
+            DisplayFormat::Verbose { show_offset } => {
+                for (count, mapping) in matches.enumerate() {
+                    print!("{} -", count + 1);
+
+                    if show_offset {
+                        for (name, range) in mapping.iter_groups() {
+                            print!(" {}:{},{}", name, range.start, range.end);
+                        }
+                    } else {
+                        for (name, text) in mapping.iter_groups_text() {
+                            print!(" {}:{:?}", name, text);
+                        }
+                    }
+
+                    println!();
                 }
             }
-
-            println!();
         }
     }
+
+    let compiled_matches = regex::compile_matches_progress(regex, &text);
+    handle_matches(compiled_matches.iter(), &text, &timer, display_format);
 
     //  ____       _                   ___        __
     // |  _ \  ___| |__  _   _  __ _  |_ _|_ __  / _| ___  ___
