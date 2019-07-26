@@ -79,6 +79,9 @@ impl<'t> Iterator for NaiveEnumCubic<'t> {
 // TODO: this algorithm probably doesn't return matches aligned with the last
 // character.
 
+// TODO: this algorithm doens't handle epsilon transitions (we just need to
+// follow assignations after each step).
+
 pub struct NaiveEnumQuadratic<'t> {
     automaton: Automaton,
     text:      &'t str,
@@ -93,13 +96,14 @@ impl<'t> NaiveEnumQuadratic<'t> {
     pub fn new(regex_str: &str, text: &'t str) -> NaiveEnumQuadratic<'t> {
         let automaton = regex::compile_raw(regex_str);
 
-        let mut initials = vec![false; automaton.nb_states];
-        initials[automaton.get_initial()] = true;
+        // Init automata states
+        let mut initial_states = vec![false; automaton.nb_states];
+        initial_states[automaton.get_initial()] = true;
 
         NaiveEnumQuadratic {
             automaton,
             text,
-            curr_states: initials,
+            curr_states: initial_states,
             char_iterator_end: text.char_indices(),
             char_iterator_start: text.char_indices(),
         }
@@ -110,7 +114,7 @@ impl<'t> Iterator for NaiveEnumQuadratic<'t> {
     type Item = Mapping<'t>;
 
     fn next(&mut self) -> Option<Mapping<'t>> {
-        while let Some((curr_start, _)) = self.char_iterator_start.next() {
+        while let Some((curr_start, _)) = self.char_iterator_start.clone().next() {
             while let Some((curr_end, next_char)) = self.char_iterator_end.next() {
                 // Check if current state results in a match
                 if !self.curr_states.iter().any(|x| *x) {
@@ -123,7 +127,7 @@ impl<'t> Iterator for NaiveEnumQuadratic<'t> {
                     .iter()
                     .any(|&state| self.curr_states[state]);
 
-                // Read transition and updates states in consequence
+                // Read transitions and updates states in consequence
                 let nb_states = self.automaton.nb_states;
                 let adj = self.automaton.get_adj_for_char(next_char);
 
@@ -152,6 +156,7 @@ impl<'t> Iterator for NaiveEnumQuadratic<'t> {
             }
 
             // Move the start cursor to the next char.
+            self.char_iterator_start.next();
             self.char_iterator_end = self.char_iterator_start.clone();
 
             // Reset automata states

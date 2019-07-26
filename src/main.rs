@@ -83,7 +83,7 @@ fn main() {
         .arg(
             Arg::with_name("use_naive_quadratic")
                 .long("naive-quadratic")
-                .help("Use a naive algorithm to enumerate all subwords that match the input regex,
+                .help("Use a naive algorithm to enumerate all subwords that match the input regex. \
                        This algorithm runs in time O(|regex||text|²)"),
         )
         .arg(

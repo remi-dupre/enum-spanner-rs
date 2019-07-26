@@ -64,3 +64,20 @@ fn mixed_emails() {
         assert_eq!(naive_results(&regex, text), default_results(&regex, text));
     }
 }
+
+#[test]
+fn some_utf8() {
+    let regex = regex::compile(r"e{3}|ê{3}");
+    let texts = [
+        "êêeeeêê",
+        "êê",
+        "êêêêê",
+        "eêêêeêêêe",
+        "eeeêeee",
+        "eeeêêeee",
+    ];
+
+    for text in texts.into_iter() {
+        assert_eq!(naive_results(&regex, text), default_results(&regex, text));
+    }
+}

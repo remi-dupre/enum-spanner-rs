@@ -19,9 +19,10 @@ use super::jump::Jump;
 /// the input automata over the input text (polynomial preprocessing and
 /// constant delay iteration).
 pub struct IndexedDag<'t> {
-    automaton: Automaton,
-    text:      &'t str,
-    jump:      Jump,
+    automaton:    Automaton,
+    text:         &'t str,
+    jump:         Jump,
+    char_offsets: Vec<usize>,
 }
 
 #[derive(Eq, PartialEq)]
@@ -37,6 +38,15 @@ impl<'t> IndexedDag<'t> {
         text: &str,
         toggle_progress: ToggleProgress,
     ) -> IndexedDag {
+        // Index utf8 chars, the ith char being represented by
+        // `text[char_offsets[i]..char_offsets[i+1]]`
+        let char_offsets = text
+            .char_indices()
+            .map(|(index, _)| index)
+            .chain(iter::once(text.len()))
+            .collect();
+
+        // Compute the jump function
         let mut jump = Jump::new(
             iter::once(automaton.get_initial()),
             automaton.get_closure_for_assignations(),
@@ -78,6 +88,7 @@ impl<'t> IndexedDag<'t> {
             automaton,
             text,
             jump,
+            char_offsets,
         }
     }
 
@@ -180,11 +191,15 @@ impl<'i, 't> Iterator for IndexedDagIterator<'i, 't> {
                 if self.curr_level == 0
                     && new_gamma.contains(&self.indexed_dag.automaton.get_initial())
                 {
+                    // Re-align level indexes with utf8 coding
+                    let aligned_markers = new_mapping
+                        .into_iter()
+                        .map(|(marker, pos)| (marker.clone(), self.indexed_dag.char_offsets[pos]));
+
+                    // Create the new mapping
                     return Some(Mapping::from_markers(
                         self.indexed_dag.text,
-                        new_mapping
-                            .into_iter()
-                            .map(|(marker, pos)| (marker.clone(), pos)),
+                        aligned_markers,
                     ));
                 } else if let Some((jump_level, jump_gamma)) = self
                     .indexed_dag
