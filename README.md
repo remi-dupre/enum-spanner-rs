@@ -48,7 +48,7 @@ output one match for each possible assignment of the groups.
 
 ### Named groups
 
-You can define named groups as follow: `(?P<group_a>a+)(?P<group_b>b+)`. This
+You can define named groups as follows: `(?P<group_a>a+)(?P<group_b>b+)`. This
 example will extract any group of a's followed by a group of b's.
 
 The group named `match` has a special behaviour, it can be used to match only
